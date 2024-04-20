@@ -1,26 +1,6 @@
-# TCL ModelSim compile script
-# Pay atention on the compilation order!!!
+#!/usr/bin/tclsh
 
-
-
-# Sets the compiler
-#set compiler vlog
-set compiler vcom
-
-
-# Creats the work library if it does not exist
-if { ![file exist work] } {
-    vlib work
-}
-
-
-
-
-#########################
-### Source files list ###
-#########################
-
-# Source files listed in hierarchical order: botton -> top
+# Source files listed in hierarchical order: bottom -> top
 set sourceFiles {
     ../src/MIPS_package.vhd
     ../src/RegisterNbits.vhd
@@ -34,45 +14,27 @@ set sourceFiles {
     MIPS_monocycle_tb.vhd
 }
 
-
-
 set top MIPS_monocycle_tb
 
-
-
-###################
-### Compilation ###
-###################
-
+# Compilation
 if { [llength $sourceFiles] > 0 } {
-    
     foreach file $sourceFiles {
-        if [ catch {$compiler $file} ] {
-            puts "\n*** ERROR compiling file $file :( ***" 
-            return;
+        if {[catch {exec ghdl -a $file} result]} {
         }
     }
 }
 
-
-
-
-################################
-### Lists the compiled files ###
-################################
-
-if { [llength $sourceFiles] > 0 } {
-    
-    puts "\n*** Compiled files:"  
-    
-    foreach file $sourceFiles {
-        puts \t$file
-    }
+# Elaboration
+if {[catch {exec ghdl -e $top} result]} {
+    puts stderr "Error elaborating $top: $result"
+    exit 1
 }
 
+# Simulation with waveform generation
+set wavefile "$top.ghw"
+if {[catch {exec ghdl -r $top --wave=$wavefile --stop-time=10us} result]} {
+    puts stderr "Error simulating $top: $result"
+    exit 1
+}
 
-puts "\n*** Compilation OK ;) ***"
-
-#vsim $top
-#set StdArithNoWarnings 1
-
+puts "Compilation and elaboration successful"
