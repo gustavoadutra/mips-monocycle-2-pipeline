@@ -1,0 +1,6 @@
+ Address    Code        Basic                     Source
+
+0x00400000  0x240d0004  addiu $13,$0,0x00000006        addiu   $t5, $zero, 2           # t5 = constant 2
+0x00400004  0x3c011001  lui $1,0x00001001     11       la      $t0, array              # t0 points the first array element
+0x00400008  0x34280000  ori $8,$1,0x00000000       
+0x0040000c  0x8d090000  lw $9,0x00000000($8)  17       lw      $t1, 0($t0)             # t1 <- array[i]
