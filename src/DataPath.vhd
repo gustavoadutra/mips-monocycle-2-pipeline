@@ -39,7 +39,7 @@ architecture structural of DataPath is
     signal uins_1         : Microinstruction;
     signal instruction_1: std_logic_vector(31 downto 0);
     signal rs_1, rt_1, rd_1: std_logic_vector(4 downto 0);
-    signal pc_q_1: std_logic_vector(31 downto 0);
+    signal pc_q_1, pc_d_1: std_logic_vector(31 downto 0);
 
     signal writeRegister_1: std_logic_vector(4 downto 0);
 
@@ -47,21 +47,32 @@ architecture structural of DataPath is
     signal uins_2: Microinstruction;
     signal instruction_2: std_logic_vector(31 downto 0);
     signal rs_2, rt_2, rd_2: std_logic_vector(4 downto 0);
-    signal pc_q_2: std_logic_vector(31 downto 0);
+    signal pc_q_2, pc_d_2: std_logic_vector(31 downto 0);
 
     signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
     signal signExtended_2, zeroExtended_2: std_logic_vector(31 downto 0);
     signal jumpTarget_2: std_logic_vector(31 downto 0);
     signal writeRegister_2: std_logic_vector(4 downto 0);
+
     -- Stage 3 MEM/WB
-    signal instruction_3: std_logic_vector(31 downto 0);
     signal uins_3: Microinstruction;
+    signal instruction_3: std_logic_vector(31 downto 0);
     signal rs_3, rt_3, rd_3: std_logic_vector(4 downto 0);
-    signal pc_q_3: std_logic_vector(31 downto 0);
+    signal pc_q_3, pc_d_3: std_logic_vector(31 downto 0);
 
     signal writeRegister_3: std_logic_vector(4 downto 0);
     signal result_3: std_logic_vector(31 downto 0);
     signal jumpTarget_3: std_logic_vector(31 downto 0);
+
+    -- Stage 4 WB
+    signal uins_4: Microinstruction;
+    signal instruction_4: std_logic_vector(31 downto 0);
+    signal rs_4, rt_4, rd_4: std_logic_vector(4 downto 0);
+    signal pc_q_4, pc_d_4: std_logic_vector(31 downto 0);
+    
+    signal writeRegister_4: std_logic_vector(4 downto 0);
+    signal data_i_4: std_logic_vector(31 downto 0);
+    signal result_4: std_logic_vector(31 downto 0);
 
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction(25 downto 21);
@@ -90,8 +101,8 @@ begin
             clock       => clock,
             reset       => reset,
             ce          => '1', 
-            d           => pc_d, 
-            q           => pc_q
+            d           => pc_d_4, 
+            q           => pc_q_4
         );
         
     -- Instruction memory is addressed by the PC register
@@ -100,7 +111,7 @@ begin
     
     -- Selects the instruction field witch contains the register to be written
     -- MUX at the register file input
-    MUX_RF: writeRegister <= rt when uins.regDst = '0' else rd;
+    MUX_RF: writeRegister <= rt when uins_4.regDst = '0' else rd_4;
     
     -- Sign extends the low 16 bits of instruction 
     SIGN_EX: signExtended <= x"FFFF" & instruction_1(15 downto 0) when instruction_1(15) = '1' else 
@@ -134,14 +145,14 @@ begin
     -- Selects the data to be written in the register file
     -- MUX at the data memory output
     -- Write data comes from stage 4 of the pipeline
-    MUX_DATA_MEM: writeData <= data_i when uins.memToReg = '1' else result;
+    MUX_DATA_MEM: writeData <= data_i_4 when uins_4.memToReg = '1' else result_4;
     
 
     -- Data to data memory comes from the second read register at register file
     data_o <= readData2_2;
     
     -- ALU output address the data memory
-    dataAddress <= result;
+    dataAddress <= result_3;
 
     -- Pipeline stage 1 IF/ID
     stage_1: process(clock, reset)
@@ -149,6 +160,7 @@ begin
         if reset = '1' then
             instruction_1 <= (others => '0');
             pc_q_1 <= (others => '0');
+            pc_d_1 <= (others => '0');
             rs_1 <= (others => '0');
             rt_1 <= (others => '0');
             rd_1 <= (others => '0');
@@ -158,6 +170,7 @@ begin
             uins_1 <= uins;
             instruction_1 <= instruction;
             pc_q_1 <= pc_q;
+            pc_d_1 <= pc_d;
             rs_1 <= rs;
             rt_1 <= rt;
             rd_1 <= rd;
@@ -165,12 +178,14 @@ begin
             writeRegister_1 <= writeRegister;
         end if;
     end process stage_1;
+
     -- Pipeline stage 2 EX/MEM
     stage_2: process(clock, reset)
     begin
         if reset = '1' then
             instruction_2 <= (others => '0');
             pc_q_2 <= (others => '0');
+            pc_d_2 <= (others => '0');
             rs_2 <= (others => '0');
             rt_2 <= (others => '0');
             rd_2 <= (others => '0');
@@ -179,53 +194,81 @@ begin
             readData2_2 <= (others => '0');
             signExtended_2 <= (others => '0');
             zeroExtended_2 <= (others => '0');
+            jumpTarget_2 <= (others => '0');
             writeRegister_2 <= (others => '0');
         elsif rising_edge(clock) then
             uins_2 <= uins_1;
             instruction_2 <= instruction_1;
             pc_q_2 <= pc_q_1;
+            pc_d_2 <= pc_d_1;
             rs_2 <= rs_1;
             rt_2 <= rt_1;
             rd_2 <= rd_1;
-            writeRegister_2 <= writeRegister_1;
 
             readData1_2 <= readData1;
             readData2_2 <= readData2;
             signExtended_2 <= signExtended;
             zeroExtended_2 <= zeroExtended;
             jumpTarget_2 <= jumpTarget;
+            writeRegister_2 <= writeRegister_1;
         end if;
     end process stage_2;
+
     -- Pipeline stage 3 MEM/WB
     stage_3: process(clock, reset)
     begin
         if reset = '1' then
             instruction_3 <= (others => '0');
             pc_q_3 <= (others => '0');
+            pc_d_3 <= (others => '0');
             rs_3 <= (others => '0');
             rt_3 <= (others => '0');
             rd_3 <= (others => '0');
-            writeRegister_3 <= (others => '0');
 
+            writeRegister_3 <= (others => '0');
             jumpTarget_3 <= (others => '0');
             result_3 <= (others => '0');
         elsif rising_edge(clock) then
             instruction_3 <= instruction_2;
             pc_q_3 <= pc_q_2;
+            pc_d_3 <= pc_d_2;
             rs_3 <= rs_2;
             rt_3 <= rt_2;
             rd_3 <= rd_2;
-            writeRegister_3 <= writeRegister_2;
 
+            writeRegister_3 <= writeRegister_2;
             jumpTarget_3 <= jumpTarget_2;
             result_3 <= result;
         end if;
     end process stage_3;
 
+    -- Pipeline stage 4
+    stage_4: process(clock, reset)
+    begin
+        if reset = '1' then
+            instruction_4 <= (others => '0');
+            pc_q_4 <= (others => '0');
+            pc_d_4 <= (others => '0');
+            rs_4 <= (others => '0');
+            rt_4 <= (others => '0');
+            rd_4 <= (others => '0');
+    
+            writeRegister_4 <= (others => '0');
+            data_i_4 <= (others => '0');
+        elsif rising_edge(clock) then
+            uins_4 <= uins_3;
+            instruction_4 <= instruction_3;
+            pc_q_4 <= pc_q_3;
+            pc_d_4 <= pc_d_3;
+            rs_4 <= rs_3;
+            rt_4 <= rt_3;
+            rd_4 <= rd_3;
 
-
-
-
+            writeRegister_4 <= writeRegister_3;
+            data_i_4 <= data_i;
+            result_4 <= result_3;
+        end if;
+    end process stage_4;
 
     -- Register file
     REGISTER_FILE: entity work.RegisterFile(structural)
