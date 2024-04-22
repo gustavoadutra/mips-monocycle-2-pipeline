@@ -34,10 +34,21 @@ architecture structural of DataPath is
     signal jumpTarget: std_logic_vector(31 downto 0);
     signal writeRegister   : std_logic_vector(4 downto 0);
 
+    -- Pipeline registers
+
+    -- Stage 1 IF/ID
     signal instruction_1: std_logic_vector(31 downto 0);
     signal uins_1         : Microinstruction;
-    signal pc_d_1, pc_q_1: std_logic_vector(31 downto 0);
+    signal pc_q_1: std_logic_vector(31 downto 0);
+    signal writeRegister_1: std_logic_vector(4 downto 0);
     signal rs_1, rt_1, rd_1: std_logic_vector(4 downto 0);
+    -- Stage 2 EX/MEM
+    signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
+    signal uins_2: Microinstruction;
+    signal signExtended_2, zeroExtended_2: std_logic_vector(31 downto 0);
+    signal pc_q_2: std_logic_vector(31 downto 0);
+    signal rs_2, rt_2, rd_2: std_logic_vector(4 downto 0);
+    signal writeRegister_2: std_logic_vector(4 downto 0);
 
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction(25 downto 21);
@@ -76,7 +87,7 @@ begin
     
     -- Selects the instruction field witch contains the register to be written
     -- MUX at the register file input
-    MUX_RF: writeRegister <= rt when uins.regDst = '0' else rd_1;
+    MUX_RF: writeRegister <= rt when uins.regDst = '0' else rd;
     
     -- Sign extends the low 16 bits of instruction 
     SIGN_EX: signExtended <= x"FFFF" & instruction_1(15 downto 0) when instruction_1(15) = '1' else 
@@ -103,9 +114,9 @@ begin
       
     -- Selects the second ALU operand
     -- MUX at the ALU input
-    MUX_ALU: ALUoperand2 <= readData2 when uins.ALUSrc = "00" else
-                            zeroExtended when uins.ALUSrc = "01" else
-                            signExtended;
+    MUX_ALU: ALUoperand2 <= readData2_2 when uins_2.ALUSrc = "00" else
+                            zeroExtended_2 when uins_2.ALUSrc = "01" else
+                            signExtended_2;
     
     -- Selects the data to be written in the register file
     -- MUX at the data memory output
@@ -114,7 +125,7 @@ begin
     
 
     -- Data to data memory comes from the second read register at register file
-    data_o <= readData2;
+    data_o <= readData2_2;
     
     -- ALU output address the data memory
     dataAddress <= result;
@@ -124,22 +135,47 @@ begin
     begin
         if reset = '1' then
             instruction_1 <= (others => '0');
-            pc_d_1 <= (others => '0');
             pc_q_1 <= (others => '0');
             rs_1 <= (others => '0');
             rt_1 <= (others => '0');
             rd_1 <= (others => '0');
+            writeRegister_1 <= (others => '0');
         elsif rising_edge(clock) then
-            instruction_1 <= instruction;
             uins_1 <= uins;
-            pc_d_1 <= pc_d;
+            instruction_1 <= instruction;
             pc_q_1 <= pc_q;
             rs_1 <= rs;
             rt_1 <= rt;
             rd_1 <= rd;
+            writeRegister_1 <= writeRegister;
         end if;
     end process stage_1;
     -- Pipeline stage 2 EX/MEM
+    stage_2: process(clock, reset)
+    begin
+        if reset = '1' then
+            readData1_2 <= (others => '0');
+            readData2_2 <= (others => '0');
+            signExtended_2 <= (others => '0');
+            zeroExtended_2 <= (others => '0');
+            pc_q_2 <= (others => '0');
+            rs_2 <= (others => '0');
+            rt_2 <= (others => '0');
+            rd_2 <= (others => '0');
+            writeRegister_2 <= (others => '0');
+        elsif rising_edge(clock) then
+            uins_2 <= uins_1;
+            readData1_2 <= readData1;
+            readData2_2 <= readData2;
+            signExtended_2 <= signExtended;
+            zeroExtended_2 <= zeroExtended;
+            pc_q_2 <= pc_q_1;
+            rs_2 <= rs_1;
+            rt_2 <= rt_1;
+            rd_2 <= rd_1;
+            writeRegister_2 <= writeRegister_1;
+        end if;
+    end process stage_2;
 
 
 
@@ -151,10 +187,10 @@ begin
         port map (
             clock            => clock,
             reset            => reset,            
-            write            => uins.RegWrite,            
-            readRegister1    => rs,    
-            readRegister2    => rt,
-            writeRegister    => writeRegister,
+            write            => uins_1.RegWrite,            
+            readRegister1    => rs_1,    
+            readRegister2    => rt_1,
+            writeRegister    => writeRegister_1,
             writeData        => writeData,          
             readData1        => readData1,        
             readData2        => readData2
@@ -164,11 +200,11 @@ begin
     -- Arithmetic/Logic Unit
     ALU: entity work.ALU(behavioral)
         port map (
-            operand1    => readData1,
+            operand1    => readData1_2,
             operand2    => ALUoperand2,
             result      => result,
             zero        => zero,
-            operation   => uins.instruction
+            operation   => uins_2.instruction
         );
 
 end structural;
