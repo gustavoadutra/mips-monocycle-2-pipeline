@@ -35,20 +35,33 @@ architecture structural of DataPath is
     signal writeRegister   : std_logic_vector(4 downto 0);
 
     -- Pipeline registers
-
     -- Stage 1 IF/ID
-    signal instruction_1: std_logic_vector(31 downto 0);
     signal uins_1         : Microinstruction;
-    signal pc_q_1: std_logic_vector(31 downto 0);
-    signal writeRegister_1: std_logic_vector(4 downto 0);
+    signal instruction_1: std_logic_vector(31 downto 0);
     signal rs_1, rt_1, rd_1: std_logic_vector(4 downto 0);
+    signal pc_q_1: std_logic_vector(31 downto 0);
+
+    signal writeRegister_1: std_logic_vector(4 downto 0);
+
     -- Stage 2 EX/MEM
-    signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
     signal uins_2: Microinstruction;
-    signal signExtended_2, zeroExtended_2: std_logic_vector(31 downto 0);
-    signal pc_q_2: std_logic_vector(31 downto 0);
+    signal instruction_2: std_logic_vector(31 downto 0);
     signal rs_2, rt_2, rd_2: std_logic_vector(4 downto 0);
+    signal pc_q_2: std_logic_vector(31 downto 0);
+
+    signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
+    signal signExtended_2, zeroExtended_2: std_logic_vector(31 downto 0);
+    signal jumpTarget_2: std_logic_vector(31 downto 0);
     signal writeRegister_2: std_logic_vector(4 downto 0);
+    -- Stage 3 MEM/WB
+    signal instruction_3: std_logic_vector(31 downto 0);
+    signal uins_3: Microinstruction;
+    signal rs_3, rt_3, rd_3: std_logic_vector(4 downto 0);
+    signal pc_q_3: std_logic_vector(31 downto 0);
+
+    signal writeRegister_3: std_logic_vector(4 downto 0);
+    signal result_3: std_logic_vector(31 downto 0);
+    signal jumpTarget_3: std_logic_vector(31 downto 0);
 
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction(25 downto 21);
@@ -82,7 +95,7 @@ begin
         );
         
     -- Instruction memory is addressed by the PC register
-    instructionAddress <= pc_q;
+    instructionAddress <= pc_q_3;
 
     
     -- Selects the instruction field witch contains the register to be written
@@ -98,18 +111,18 @@ begin
        
     -- Converts the branch offset from words to bytes (multiply by 4) 
     -- Hardware at the second ADDER input
-    SHIFT_L: branchOffset <= signExtended(29 downto 0) & "00";
+    -- SHIFT_L: branchOffset <= signExtended(29 downto 0) & "00";
     
     -- Branch target address
     -- Branch ADDER
-    ADDER_BRANCH: branchTarget <= STD_LOGIC_VECTOR(UNSIGNED(incrementedPC) + UNSIGNED(branchOffset));
+    -- ADDER_BRANCH: branchTarget <= STD_LOGIC_VECTOR(UNSIGNED(incrementedPC) + UNSIGNED(branchOffset));
     
     -- Jump target address
-    jumpTarget <= incrementedPC(31 downto 28) & instruction(25 downto 0) & "00";
+    jumpTarget <= incrementedPC(31 downto 28) & instruction_3(25 downto 0) & "00";
     
     -- MUX which selects the PC value
     MUX_PC: pc_d <= branchTarget when (uins.Branch and zero) = '1' else 
-            jumpTarget when uins.Jump = '1' else
+            jumpTarget_3 when uins_3.Jump = '1' else
             incrementedPC;
       
     -- Selects the second ALU operand
@@ -139,6 +152,7 @@ begin
             rs_1 <= (others => '0');
             rt_1 <= (others => '0');
             rd_1 <= (others => '0');
+
             writeRegister_1 <= (others => '0');
         elsif rising_edge(clock) then
             uins_1 <= uins;
@@ -147,6 +161,7 @@ begin
             rs_1 <= rs;
             rt_1 <= rt;
             rd_1 <= rd;
+
             writeRegister_1 <= writeRegister;
         end if;
     end process stage_1;
@@ -154,28 +169,58 @@ begin
     stage_2: process(clock, reset)
     begin
         if reset = '1' then
-            readData1_2 <= (others => '0');
-            readData2_2 <= (others => '0');
-            signExtended_2 <= (others => '0');
-            zeroExtended_2 <= (others => '0');
+            instruction_2 <= (others => '0');
             pc_q_2 <= (others => '0');
             rs_2 <= (others => '0');
             rt_2 <= (others => '0');
             rd_2 <= (others => '0');
+            
+            readData1_2 <= (others => '0');
+            readData2_2 <= (others => '0');
+            signExtended_2 <= (others => '0');
+            zeroExtended_2 <= (others => '0');
             writeRegister_2 <= (others => '0');
         elsif rising_edge(clock) then
             uins_2 <= uins_1;
-            readData1_2 <= readData1;
-            readData2_2 <= readData2;
-            signExtended_2 <= signExtended;
-            zeroExtended_2 <= zeroExtended;
+            instruction_2 <= instruction_1;
             pc_q_2 <= pc_q_1;
             rs_2 <= rs_1;
             rt_2 <= rt_1;
             rd_2 <= rd_1;
             writeRegister_2 <= writeRegister_1;
+
+            readData1_2 <= readData1;
+            readData2_2 <= readData2;
+            signExtended_2 <= signExtended;
+            zeroExtended_2 <= zeroExtended;
+            jumpTarget_2 <= jumpTarget;
         end if;
     end process stage_2;
+    -- Pipeline stage 3 MEM/WB
+    stage_3: process(clock, reset)
+    begin
+        if reset = '1' then
+            instruction_3 <= (others => '0');
+            pc_q_3 <= (others => '0');
+            rs_3 <= (others => '0');
+            rt_3 <= (others => '0');
+            rd_3 <= (others => '0');
+            writeRegister_3 <= (others => '0');
+
+            jumpTarget_3 <= (others => '0');
+            result_3 <= (others => '0');
+        elsif rising_edge(clock) then
+            instruction_3 <= instruction_2;
+            pc_q_3 <= pc_q_2;
+            rs_3 <= rs_2;
+            rt_3 <= rt_2;
+            rd_3 <= rd_2;
+            writeRegister_3 <= writeRegister_2;
+
+            jumpTarget_3 <= jumpTarget_2;
+            result_3 <= result;
+        end if;
+    end process stage_3;
 
 
 
