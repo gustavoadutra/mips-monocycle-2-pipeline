@@ -33,7 +33,12 @@ architecture structural of DataPath is
     signal branchOffset, branchTarget, pc_d: std_logic_vector(31 downto 0);
     signal jumpTarget: std_logic_vector(31 downto 0);
     signal writeRegister   : std_logic_vector(4 downto 0);
-    
+
+    signal instruction_1: std_logic_vector(31 downto 0);
+    signal uins_1         : Microinstruction;
+    signal data_i_1, data_o_1, pc_d_1, pc_q_1: std_logic_vector(31 downto 0);
+    signal rs_1, rt_1, rd_1: std_logic_vector(4 downto 0);
+
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction(25 downto 21);
         
@@ -67,7 +72,7 @@ begin
         
     -- Instruction memory is addressed by the PC register
     instructionAddress <= pc_q;
-        
+
     
     -- Selects the instruction field witch contains the register to be written
     -- MUX at the register file input
@@ -112,8 +117,35 @@ begin
     
     -- ALU output address the data memory
     dataAddress <= result;
+
+    -- Pipeline stage 1 IF/ID
+    stage_1: process(clock, reset)
+    begin
+        if reset = '1' then
+            instruction_1 <= (others => '0');
+            data_i_1 <= (others => '0');
+            pc_d_1 <= (others => '0');
+            pc_q_1 <= (others => '0');
+            rs_1 <= (others => '0');
+            rt_1 <= (others => '0');
+            rd_1 <= (others => '0');
+        elsif rising_edge(clock) then
+            instruction_1 <= instruction;
+            uins_1 <= uins;
+            data_i_1 <= data_i;
+            pc_d_1 <= pc_d;
+            pc_q_1 <= pc_q;
+            rs_1 <= rs;
+            rt_1 <= rt;
+            rd_1 <= rd;
+        end if;
+    end process stage_1;
+    -- Pipeline stage 2 EX/MEM
     
-    
+
+
+
+
     -- Register file
     REGISTER_FILE: entity work.RegisterFile(structural)
         port map (
