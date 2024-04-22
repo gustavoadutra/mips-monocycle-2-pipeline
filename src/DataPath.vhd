@@ -36,7 +36,7 @@ architecture structural of DataPath is
 
     signal instruction_1: std_logic_vector(31 downto 0);
     signal uins_1         : Microinstruction;
-    signal data_i_1, data_o_1, pc_d_1, pc_q_1: std_logic_vector(31 downto 0);
+    signal pc_d_1, pc_q_1: std_logic_vector(31 downto 0);
     signal rs_1, rt_1, rd_1: std_logic_vector(4 downto 0);
 
     -- Retrieves the rs field from the instruction
@@ -76,14 +76,14 @@ begin
     
     -- Selects the instruction field witch contains the register to be written
     -- MUX at the register file input
-    MUX_RF: writeRegister <= rt when uins.regDst = '0' else rd;
+    MUX_RF: writeRegister <= rt when uins.regDst = '0' else rd_1;
     
     -- Sign extends the low 16 bits of instruction 
-    SIGN_EX: signExtended <= x"FFFF" & instruction(15 downto 0) when instruction(15) = '1' else 
-                    x"0000" & instruction(15 downto 0);
+    SIGN_EX: signExtended <= x"FFFF" & instruction_1(15 downto 0) when instruction_1(15) = '1' else 
+                    x"0000" & instruction_1(15 downto 0);
                     
     -- Zero extends the low 16 bits of instruction 
-    ZERO_EX: zeroExtended <= x"0000" & instruction(15 downto 0);
+    ZERO_EX: zeroExtended <= x"0000" & instruction_1(15 downto 0);
        
     -- Converts the branch offset from words to bytes (multiply by 4) 
     -- Hardware at the second ADDER input
@@ -109,6 +109,7 @@ begin
     
     -- Selects the data to be written in the register file
     -- MUX at the data memory output
+    -- Write data comes from stage 4 of the pipeline
     MUX_DATA_MEM: writeData <= data_i when uins.memToReg = '1' else result;
     
 
@@ -123,7 +124,6 @@ begin
     begin
         if reset = '1' then
             instruction_1 <= (others => '0');
-            data_i_1 <= (others => '0');
             pc_d_1 <= (others => '0');
             pc_q_1 <= (others => '0');
             rs_1 <= (others => '0');
@@ -132,7 +132,6 @@ begin
         elsif rising_edge(clock) then
             instruction_1 <= instruction;
             uins_1 <= uins;
-            data_i_1 <= data_i;
             pc_d_1 <= pc_d;
             pc_q_1 <= pc_q;
             rs_1 <= rs;
@@ -141,7 +140,8 @@ begin
         end if;
     end process stage_1;
     -- Pipeline stage 2 EX/MEM
-    
+
+
 
 
 
