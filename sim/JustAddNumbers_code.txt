@@ -1,5 +1,6 @@
  Address    Code        Basic                     Source
 
-0x00400000  0x3c011001  lui $1,0x00001001     11       la      $t0, array              # t0 points the first array element
-0x00400004  0x34280000  ori $8,$1,0x00000000       
-0x00400008  0x8d090000  lw $9,0x00000000($8)  17       lw      $t1, 0($t0)             # t1 <- array[i]
+0x00400000  0x240d0004  addiu $13,$0,0x00000006        addiu   $t5, $zero, 4           # t5 = constant 1
+0x00400004  0x24180002  addiu $24,$0,0x00000007        addiu   $t8, $zero, 2
+0x00400008  0x25080004  addiu $8,$8,0x0000000423       addiu   $t0, $t0, 4             # t0 points the next element
+0x0040000c  0x25ceffff  addiu $14,$14,0xffffff24       addiu   $t6, $t6, -1            # size--

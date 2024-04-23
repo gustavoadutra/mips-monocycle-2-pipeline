@@ -39,7 +39,6 @@ architecture structural of DataPath is
     signal uins_1         : Microinstruction;
     signal instruction_1: std_logic_vector(31 downto 0);
     signal rs_1, rt_1, rd_1: std_logic_vector(4 downto 0);
-    signal pc_q_1, pc_d_1: std_logic_vector(31 downto 0);
 
     signal writeRegister_1: std_logic_vector(4 downto 0);
 
@@ -47,7 +46,6 @@ architecture structural of DataPath is
     signal uins_2: Microinstruction;
     signal instruction_2: std_logic_vector(31 downto 0);
     signal rs_2, rt_2, rd_2: std_logic_vector(4 downto 0);
-    signal pc_q_2, pc_d_2: std_logic_vector(31 downto 0);
 
     signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
     signal signExtended_2, zeroExtended_2: std_logic_vector(31 downto 0);
@@ -58,7 +56,6 @@ architecture structural of DataPath is
     signal uins_3: Microinstruction;
     signal instruction_3: std_logic_vector(31 downto 0);
     signal rs_3, rt_3, rd_3: std_logic_vector(4 downto 0);
-    signal pc_q_3, pc_d_3: std_logic_vector(31 downto 0);
 
     signal writeRegister_3: std_logic_vector(4 downto 0);
     signal result_3: std_logic_vector(31 downto 0);
@@ -68,7 +65,6 @@ architecture structural of DataPath is
     signal uins_4: Microinstruction;
     signal instruction_4: std_logic_vector(31 downto 0);
     signal rs_4, rt_4, rd_4: std_logic_vector(4 downto 0);
-    signal pc_q_4, pc_d_4: std_logic_vector(31 downto 0);
     
     signal writeRegister_4: std_logic_vector(4 downto 0);
     signal data_i_4: std_logic_vector(31 downto 0);
@@ -101,17 +97,17 @@ begin
             clock       => clock,
             reset       => reset,
             ce          => '1', 
-            d           => pc_d_4, 
-            q           => pc_q_4
+            d           => pc_d, 
+            q           => pc_q
         );
         
     -- Instruction memory is addressed by the PC register
-    instructionAddress <= pc_q_3;
+    instructionAddress <= pc_q;
 
     
     -- Selects the instruction field witch contains the register to be written
     -- MUX at the register file input
-    MUX_RF: writeRegister <= rt when uins_4.regDst = '0' else rd_4;
+    MUX_RF: writeRegister <= rt_1 when uins_1.regDst = '0' else rd_1;
     
     -- Sign extends the low 16 bits of instruction 
     SIGN_EX: signExtended <= x"FFFF" & instruction_1(15 downto 0) when instruction_1(15) = '1' else 
@@ -132,9 +128,8 @@ begin
     jumpTarget <= incrementedPC(31 downto 28) & instruction_3(25 downto 0) & "00";
     
     -- MUX which selects the PC value
-    MUX_PC: pc_d <= branchTarget when (uins.Branch and zero) = '1' else 
-            jumpTarget_3 when uins_3.Jump = '1' else
-            incrementedPC;
+    MUX_PC: pc_d <= jumpTarget_3 when uins_3.Jump = '1' else
+                    incrementedPC;
       
     -- Selects the second ALU operand
     -- MUX at the ALU input
@@ -159,23 +154,17 @@ begin
     begin
         if reset = '1' then
             instruction_1 <= (others => '0');
-            pc_q_1 <= (others => '0');
-            pc_d_1 <= (others => '0');
             rs_1 <= (others => '0');
             rt_1 <= (others => '0');
             rd_1 <= (others => '0');
 
-            writeRegister_1 <= (others => '0');
         elsif rising_edge(clock) then
             uins_1 <= uins;
             instruction_1 <= instruction;
-            pc_q_1 <= pc_q;
-            pc_d_1 <= pc_d;
             rs_1 <= rs;
             rt_1 <= rt;
             rd_1 <= rd;
 
-            writeRegister_1 <= writeRegister;
         end if;
     end process stage_1;
 
@@ -184,8 +173,6 @@ begin
     begin
         if reset = '1' then
             instruction_2 <= (others => '0');
-            pc_q_2 <= (others => '0');
-            pc_d_2 <= (others => '0');
             rs_2 <= (others => '0');
             rt_2 <= (others => '0');
             rd_2 <= (others => '0');
@@ -199,8 +186,6 @@ begin
         elsif rising_edge(clock) then
             uins_2 <= uins_1;
             instruction_2 <= instruction_1;
-            pc_q_2 <= pc_q_1;
-            pc_d_2 <= pc_d_1;
             rs_2 <= rs_1;
             rt_2 <= rt_1;
             rd_2 <= rd_1;
@@ -210,7 +195,7 @@ begin
             signExtended_2 <= signExtended;
             zeroExtended_2 <= zeroExtended;
             jumpTarget_2 <= jumpTarget;
-            writeRegister_2 <= writeRegister_1;
+            writeRegister_2 <= writeRegister;
         end if;
     end process stage_2;
 
@@ -219,8 +204,6 @@ begin
     begin
         if reset = '1' then
             instruction_3 <= (others => '0');
-            pc_q_3 <= (others => '0');
-            pc_d_3 <= (others => '0');
             rs_3 <= (others => '0');
             rt_3 <= (others => '0');
             rd_3 <= (others => '0');
@@ -229,9 +212,8 @@ begin
             jumpTarget_3 <= (others => '0');
             result_3 <= (others => '0');
         elsif rising_edge(clock) then
+            uins_3 <= uins_2;
             instruction_3 <= instruction_2;
-            pc_q_3 <= pc_q_2;
-            pc_d_3 <= pc_d_2;
             rs_3 <= rs_2;
             rt_3 <= rt_2;
             rd_3 <= rd_2;
@@ -247,8 +229,6 @@ begin
     begin
         if reset = '1' then
             instruction_4 <= (others => '0');
-            pc_q_4 <= (others => '0');
-            pc_d_4 <= (others => '0');
             rs_4 <= (others => '0');
             rt_4 <= (others => '0');
             rd_4 <= (others => '0');
@@ -258,15 +238,13 @@ begin
         elsif rising_edge(clock) then
             uins_4 <= uins_3;
             instruction_4 <= instruction_3;
-            pc_q_4 <= pc_q_3;
-            pc_d_4 <= pc_d_3;
             rs_4 <= rs_3;
             rt_4 <= rt_3;
             rd_4 <= rd_3;
 
             writeRegister_4 <= writeRegister_3;
-            data_i_4 <= data_i;
             result_4 <= result_3;
+            data_i_4 <= data_i;
         end if;
     end process stage_4;
 
@@ -275,10 +253,10 @@ begin
         port map (
             clock            => clock,
             reset            => reset,            
-            write            => uins_1.RegWrite,            
+            write            => uins_4.RegWrite,            
             readRegister1    => rs_1,    
             readRegister2    => rt_1,
-            writeRegister    => writeRegister_1,
+            writeRegister    => writeRegister_4,
             writeData        => writeData,          
             readData1        => readData1,        
             readData2        => readData2
