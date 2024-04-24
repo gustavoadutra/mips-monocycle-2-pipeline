@@ -16,10 +16,11 @@ set sourceFiles {
 
 set top MIPS_monocycle_tb
 
-# Compilation
+# Compilation, warnings during the analyzing are ignored
 if { [llength $sourceFiles] > 0 } {
     foreach file $sourceFiles {
         if {[catch {exec ghdl -a $file} result]} {
+        	puts stderr "During analizyng $top : $result"
         }
     }
 }

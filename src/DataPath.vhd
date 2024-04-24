@@ -47,10 +47,10 @@ architecture structural of DataPath is
     signal instruction_2: std_logic_vector(31 downto 0);
     signal rs_2, rt_2, rd_2: std_logic_vector(4 downto 0);
 
+    signal writeRegister_2: std_logic_vector(4 downto 0);
     signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
     signal signExtended_2, zeroExtended_2: std_logic_vector(31 downto 0);
     signal jumpTarget_2: std_logic_vector(31 downto 0);
-    signal writeRegister_2: std_logic_vector(4 downto 0);
 
     -- Stage 3 MEM/WB
     signal uins_3: Microinstruction;
@@ -67,8 +67,8 @@ architecture structural of DataPath is
     signal rs_4, rt_4, rd_4: std_logic_vector(4 downto 0);
     
     signal writeRegister_4: std_logic_vector(4 downto 0);
-    signal data_i_4: std_logic_vector(31 downto 0);
     signal result_4: std_logic_vector(31 downto 0);
+    signal data_i_4: std_logic_vector(31 downto 0);
 
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction(25 downto 21);
