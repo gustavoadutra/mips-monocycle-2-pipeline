@@ -12,7 +12,7 @@ cd sim
 ~~~
 2. **Compilação:**
 
-Utilize o script compile.tcl para compilar a simulação. Execute o seguinte comando:
+Utilize o script compile.tcl para compilar e criar a simulação. Execute o seguinte comando:
 ~~~bash
 tclsh compile.tcl
 ~~~
@@ -25,3 +25,5 @@ Após a compilação, será gerado um arquivo chamado MIPS_monocycle_tb.ghw. Abr
 * Certifique-se de ter o GTKWave instalado para visualizar os resultados da simulação e o GHDL para compilação do código.
 
 * **Warnings durante a compilação são ignorados.**
+
+* **Usar o comando para criar e compilar a simulação não funciona no terminal do VSCode.**
