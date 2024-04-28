@@ -40,8 +40,6 @@ architecture structural of DataPath is
     signal instruction_1: std_logic_vector(31 downto 0);
     signal rs_1, rt_1, rd_1: std_logic_vector(4 downto 0);
 
-    signal writeRegister_1: std_logic_vector(4 downto 0);
-
     -- Stage 2 EX/MEM
     signal uins_2: Microinstruction;
     signal instruction_2: std_logic_vector(31 downto 0);
