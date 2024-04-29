@@ -1,6 +1,8 @@
  Address    Code        Basic                     Source
 
-0x00400000  0x3c011001  lui $1,0x00001001     12       la      $t6, size               # 
-0x00400004  0x342e001c  ori $14,$1,0x0000001c      
-0x00400008  0x08100009  j 0x00400024          26       j       loop    
-0x00400024  0x8d090000  lw $9,0x00000000($8)  17       lw      $t1, 0($t0)             # t1 <- array[i]
+0x00400000  0x240d0001  addiu $13,$0,0x00000006        addiu   $t5, $zero, 1           # t5 = constant 1
+0x00400004  0x24180001  addiu $24,$0,0x00000007        addiu   $t8, $zero, 1           # t8 = 1: swap performed
+0x0040000c  0x3c011001  lui $1,0x00001001     11       la      $t0, array              # t0 points the first array element
+0x00400010  0x34280000  ori $8,$1,0x00000000       
+0x00400014  0x3c011001  lui $1,0x00001001     12       la      $t6, size               # 
+0x00400018  0x342e001c  ori $14,$1,0x0000001c      

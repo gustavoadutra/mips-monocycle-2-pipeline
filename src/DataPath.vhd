@@ -105,7 +105,6 @@ begin
     -- Instruction memory is addressed by the PC register
     instructionAddress <= pc_q;
 
-    
     -- Selects the instruction field witch contains the register to be written
     -- MUX at the register file input
     MUX_RF: writeRegister <= rt_1 when uins_1.regDst = '0' else rd_1;
