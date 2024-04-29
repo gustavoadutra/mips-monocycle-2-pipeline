@@ -38,24 +38,21 @@ architecture structural of DataPath is
     -- Stage 1 IF/ID
     signal uins_1         : Microinstruction;
     signal instruction_1: std_logic_vector(31 downto 0);
-    signal rs_1, rt_1, rd_1: std_logic_vector(4 downto 0);
     signal incrementedPC_1: std_logic_vector(31 downto 0);
 
     -- Stage 2 EX/MEM
     signal uins_2: Microinstruction;
     signal instruction_2: std_logic_vector(31 downto 0);
-    signal rs_2, rt_2, rd_2: std_logic_vector(4 downto 0);
     signal incrementedPC_2: std_logic_vector(31 downto 0);
 
     signal writeRegister_2: std_logic_vector(4 downto 0);
     signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
-    signal signExtended_2, zeroExtended_2: std_logic_vector(31 downto 0);
+    signal signExtended_2: std_logic_vector(31 downto 0);
     signal jumpTarget_2: std_logic_vector(31 downto 0);
 
     -- Stage 3 MEM/WB
     signal uins_3: Microinstruction;
     signal instruction_3: std_logic_vector(31 downto 0);
-    signal rs_3, rt_3, rd_3: std_logic_vector(4 downto 0);
     signal incrementedPC_3: std_logic_vector(31 downto 0);
 
     signal writeRegister_3: std_logic_vector(4 downto 0);
@@ -65,20 +62,19 @@ architecture structural of DataPath is
     -- Stage 4 WB
     signal uins_4: Microinstruction;
     signal instruction_4: std_logic_vector(31 downto 0);
-    signal rs_4, rt_4, rd_4: std_logic_vector(4 downto 0);
     
     signal writeRegister_4: std_logic_vector(4 downto 0);
     signal result_4: std_logic_vector(31 downto 0);
     signal data_i_4: std_logic_vector(31 downto 0);
 
     -- Retrieves the rs field from the instruction
-    alias rs: std_logic_vector(4 downto 0) is instruction(25 downto 21);
+    alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
         
     -- Retrieves the rt field from the instruction
-    alias rt: std_logic_vector(4 downto 0) is instruction(20 downto 16);
+    alias rt: std_logic_vector(4 downto 0) is instruction_1(20 downto 16);
         
     -- Retrieves the rd field from the instruction
-    alias rd: std_logic_vector(4 downto 0) is instruction(15 downto 11);
+    alias rd: std_logic_vector(4 downto 0) is instruction_1(15 downto 11);
     
     signal zero : std_logic; 
     
@@ -107,14 +103,14 @@ begin
 
     -- Selects the instruction field witch contains the register to be written
     -- MUX at the register file input
-    MUX_RF: writeRegister <= rt_1 when uins_1.regDst = '0' else rd_1;
+    MUX_RF: writeRegister <= rt when uins_1.regDst = '0' else rd;
     
     -- Sign extends the low 16 bits of instruction 
     SIGN_EX: signExtended <= x"FFFF" & instruction_1(15 downto 0) when instruction_1(15) = '1' else 
                     x"0000" & instruction_1(15 downto 0);
                     
     -- Zero extends the low 16 bits of instruction 
-    ZERO_EX: zeroExtended <= x"0000" & instruction_1(15 downto 0);
+    ZERO_EX: zeroExtended <= x"0000" & instruction_2(15 downto 0);
        
     -- Converts the branch offset from words to bytes (multiply by 4) 
     -- Hardware at the second ADDER input
@@ -134,7 +130,7 @@ begin
     -- Selects the second ALU operand
     -- MUX at the ALU input
     MUX_ALU: ALUoperand2 <= readData2_2 when uins_2.ALUSrc = "00" else
-                            zeroExtended_2 when uins_2.ALUSrc = "01" else
+                            zeroExtended when uins_2.ALUSrc = "01" else
                             signExtended_2;
     
     -- Selects the data to be written in the register file
@@ -153,17 +149,11 @@ begin
     begin
         if reset = '1' then
             instruction_1 <= (others => '0');
-            rs_1 <= (others => '0');
-            rt_1 <= (others => '0');
-            rd_1 <= (others => '0');
             incrementedPC_1 <= (others => '0');
 
         elsif rising_edge(clock) then
             uins_1 <= uins;
             instruction_1 <= instruction;
-            rs_1 <= rs;
-            rt_1 <= rt;
-            rd_1 <= rd;
             incrementedPC_1 <= incrementedPC;
 
         end if;
@@ -174,31 +164,23 @@ begin
     begin
         if reset = '1' then
             instruction_2 <= (others => '0');
-            rs_2 <= (others => '0');
-            rt_2 <= (others => '0');
-            rd_2 <= (others => '0');
             incrementedPC_2 <= (others => '0');
             
             readData1_2 <= (others => '0');
             readData2_2 <= (others => '0');
             signExtended_2 <= (others => '0');
-            zeroExtended_2 <= (others => '0');
             jumpTarget_2 <= (others => '0');
             writeRegister_2 <= (others => '0');
 
         elsif rising_edge(clock) then
             uins_2 <= uins_1;
             instruction_2 <= instruction_1;
-            rs_2 <= rs_1;
-            rt_2 <= rt_1;
-            rd_2 <= rd_1;
             incrementedPC_2 <= incrementedPC_1;
 
             writeRegister_2 <= writeRegister;
             readData1_2 <= readData1;
             readData2_2 <= readData2;
             signExtended_2 <= signExtended;
-            zeroExtended_2 <= zeroExtended;
             jumpTarget_2 <= jumpTarget;
         end if;
     end process stage_2;
@@ -208,9 +190,6 @@ begin
     begin
         if reset = '1' then
             instruction_3 <= (others => '0');
-            rs_3 <= (others => '0');
-            rt_3 <= (others => '0');
-            rd_3 <= (others => '0');
             incrementedPC_3 <= (others => '0');
 
             writeRegister_3 <= (others => '0');
@@ -220,9 +199,6 @@ begin
         elsif rising_edge(clock) then
             uins_3 <= uins_2;
             instruction_3 <= instruction_2;
-            rs_3 <= rs_2;
-            rt_3 <= rt_2;
-            rd_3 <= rd_2;
             incrementedPC_3 <= incrementedPC_2;
 
             writeRegister_3 <= writeRegister_2;
@@ -236,9 +212,6 @@ begin
     begin
         if reset = '1' then
             instruction_4 <= (others => '0');
-            rs_4 <= (others => '0');
-            rt_4 <= (others => '0');
-            rd_4 <= (others => '0');
     
             writeRegister_4 <= (others => '0');
             result_4 <= (others => '0');
@@ -247,9 +220,6 @@ begin
         elsif rising_edge(clock) then
             uins_4 <= uins_3;
             instruction_4 <= instruction_3;
-            rs_4 <= rs_3;
-            rt_4 <= rt_3;
-            rd_4 <= rd_3;
 
             writeRegister_4 <= writeRegister_3;
             result_4 <= result_3;
@@ -263,8 +233,8 @@ begin
             clock            => clock,
             reset            => reset,            
             write            => uins_4.RegWrite,            
-            readRegister1    => rs_1,    
-            readRegister2    => rt_1,
+            readRegister1    => rs,    
+            readRegister2    => rt,
             writeRegister    => writeRegister_4,
             writeData        => writeData,          
             readData1        => readData1,        
