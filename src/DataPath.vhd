@@ -48,7 +48,6 @@ architecture structural of DataPath is
     signal writeRegister_2: std_logic_vector(4 downto 0);
     signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
     signal signExtended_2: std_logic_vector(31 downto 0);
-    signal jumpTarget_2: std_logic_vector(31 downto 0);
 
     -- Stage 3 MEM/WB
     signal uins_3: Microinstruction;
@@ -57,7 +56,6 @@ architecture structural of DataPath is
 
     signal writeRegister_3: std_logic_vector(4 downto 0);
     signal result_3: std_logic_vector(31 downto 0);
-    signal jumpTarget_3: std_logic_vector(31 downto 0);
 
     -- Stage 4 WB
     signal uins_4: Microinstruction;
@@ -181,7 +179,6 @@ begin
             readData1_2 <= readData1;
             readData2_2 <= readData2;
             signExtended_2 <= signExtended;
-            jumpTarget_2 <= jumpTarget;
         end if;
     end process stage_2;
 
@@ -202,7 +199,6 @@ begin
             incrementedPC_3 <= incrementedPC_2;
 
             writeRegister_3 <= writeRegister_2;
-            jumpTarget_3 <= jumpTarget_2;
             result_3 <= result;
         end if;
     end process stage_3;
