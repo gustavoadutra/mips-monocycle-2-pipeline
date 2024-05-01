@@ -38,4 +38,7 @@ if {[catch {exec ghdl -r $top --wave=$wavefile --stop-time=10us} result]} {
     exit 1
 }
 
+puts "======================================"
 puts "Compilation and elaboration successful"
+puts "======================================"
+
