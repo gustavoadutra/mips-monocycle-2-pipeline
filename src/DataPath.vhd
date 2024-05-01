@@ -65,6 +65,9 @@ architecture structural of DataPath is
     signal result_4: std_logic_vector(31 downto 0);
     signal data_i_4: std_logic_vector(31 downto 0);
 
+    -- Dependencie signal for data hazard detection
+    signal data_dependency: std_logic;
+
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
         
@@ -142,6 +145,10 @@ begin
     -- ALU output address the data memory
     dataAddress <= result_3;
 
+    data_dependency <= '0' when uins_1.RegWrite = '0' else
+                       '1' when (uins_1.RegWrite = '1' and (rs = writeRegister_4 or rt = writeRegister_4)) else
+                       '0';
+
     -- Pipeline stage 1 IF/ID
     stage_1: process(clock, reset)
     begin
@@ -167,7 +174,6 @@ begin
             readData1_2 <= (others => '0');
             readData2_2 <= (others => '0');
             signExtended_2 <= (others => '0');
-            jumpTarget_2 <= (others => '0');
             writeRegister_2 <= (others => '0');
 
         elsif rising_edge(clock) then
@@ -190,7 +196,6 @@ begin
             incrementedPC_3 <= (others => '0');
 
             writeRegister_3 <= (others => '0');
-            jumpTarget_3 <= (others => '0');
             result_3 <= (others => '0');
 
         elsif rising_edge(clock) then
