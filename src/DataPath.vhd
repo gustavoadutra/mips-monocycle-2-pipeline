@@ -68,7 +68,7 @@ architecture structural of DataPath is
     -- Dependencie signal for data hazard detection
     signal data_dependency: std_logic;
 
-    signal iamworking: std_logic_vector(31 downto 0);
+    signal iamworking: std_logic_vector(0 downto 0);
 
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
@@ -152,15 +152,17 @@ begin
                         '1' when (uins_2.RegWrite = '1' and (writeRegister_2 = rs or writeRegister_2 = rt)) else
                         '0';
 
+    -- Tests if the data dependency detection is working
+    -- Just for debug
     teste: process(clock, reset)
     begin
         if reset = '1' then
-            data_dependency <= '0';
+            iamworking <= "0";
         elsif rising_edge(clock) then
             if data_dependency = '1' then
-                iamworking <= x"00000001";
+                iamworking <= "1";
             elsif data_dependency = '0' then
-                iamworking <= x"00000000";
+                iamworking <= "0";
             end if;
         end if;
     end process teste;
@@ -171,7 +173,6 @@ begin
         if reset = '1' then
             instruction_1 <= (others => '0');
             incrementedPC_1 <= (others => '0');
-            data_dependency <= '0';
 
         elsif rising_edge(clock) then
             uins_1 <= uins;
@@ -196,8 +197,6 @@ begin
             uins_2 <= uins_1;
             instruction_2 <= instruction_1;
             incrementedPC_2 <= incrementedPC_1;
-
-            data_dependency <= '1';
 
             writeRegister_2 <= writeRegister;
             readData1_2 <= readData1;
