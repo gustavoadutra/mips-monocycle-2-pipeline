@@ -40,7 +40,7 @@ architecture structural of DataPath is
     signal instruction_1: std_logic_vector(31 downto 0);
     signal incrementedPC_1: std_logic_vector(31 downto 0);
 
-    -- Stage 2 EX/MEM
+    -- Stage 2 ID/EX
     signal uins_2: Microinstruction;
     signal instruction_2: std_logic_vector(31 downto 0);
     signal incrementedPC_2: std_logic_vector(31 downto 0);
@@ -49,7 +49,7 @@ architecture structural of DataPath is
     signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
     signal signExtended_2: std_logic_vector(31 downto 0);
 
-    -- Stage 3 MEM/WB
+    -- Stage 3 EX/MEM
     signal uins_3: Microinstruction;
     signal instruction_3: std_logic_vector(31 downto 0);
     signal incrementedPC_3: std_logic_vector(31 downto 0);
@@ -57,13 +57,18 @@ architecture structural of DataPath is
     signal writeRegister_3: std_logic_vector(4 downto 0);
     signal result_3: std_logic_vector(31 downto 0);
 
-    -- Stage 4 WB
+    -- Stage 4 MEM/WB
     signal uins_4: Microinstruction;
     signal instruction_4: std_logic_vector(31 downto 0);
     
     signal writeRegister_4: std_logic_vector(4 downto 0);
     signal result_4: std_logic_vector(31 downto 0);
     signal data_i_4: std_logic_vector(31 downto 0);
+
+    -- Dependencie signal for data hazard detection
+    signal data_dependency: std_logic;
+
+    signal iamworking: std_logic_vector(0 downto 0);
 
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
@@ -142,6 +147,26 @@ begin
     -- ALU output address the data memory
     dataAddress <= result_3;
 
+    -- Data dependency detection
+    data_dependency <= '0' when (uins_2.RegWrite = '0' or writeRegister_2 = "0") else
+                        '1' when (uins_2.RegWrite = '1' and (writeRegister_2 = rs or writeRegister_2 = rt)) else
+                        '0';
+
+    -- Tests if the data dependency detection is working
+    -- Just for debug
+    teste: process(clock, reset)
+    begin
+        if reset = '1' then
+            iamworking <= "0";
+        elsif rising_edge(clock) then
+            if data_dependency = '1' then
+                iamworking <= "1";
+            elsif data_dependency = '0' then
+                iamworking <= "0";
+            end if;
+        end if;
+    end process teste;
+
     -- Pipeline stage 1 IF/ID
     stage_1: process(clock, reset)
     begin
@@ -153,7 +178,6 @@ begin
             uins_1 <= uins;
             instruction_1 <= instruction;
             incrementedPC_1 <= incrementedPC;
-
         end if;
     end process stage_1;
 
@@ -167,7 +191,6 @@ begin
             readData1_2 <= (others => '0');
             readData2_2 <= (others => '0');
             signExtended_2 <= (others => '0');
-            jumpTarget_2 <= (others => '0');
             writeRegister_2 <= (others => '0');
 
         elsif rising_edge(clock) then
@@ -190,7 +213,6 @@ begin
             incrementedPC_3 <= (others => '0');
 
             writeRegister_3 <= (others => '0');
-            jumpTarget_3 <= (others => '0');
             result_3 <= (others => '0');
 
         elsif rising_edge(clock) then
