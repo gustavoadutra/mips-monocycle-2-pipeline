@@ -148,8 +148,8 @@ begin
     dataAddress <= result_3;
 
     -- Data dependency detection
-    data_dependency <= '0' when (uins_2.RegWrite = '0' or writeRegister_2 = "0") else
-                        '1' when (uins_2.RegWrite = '1' and (writeRegister_2 = rs or writeRegister_2 = rt)) else
+    data_dependency <= '0' when (uins_3.RegWrite = '0' or writeRegister_3 = "0") else
+                        '1' when (uins_3.RegWrite = '1' and (writeRegister_3 = rs_2 or writeRegister_2 = rt_2)) else
                         '0';
 
     -- Tests if the data dependency detection is working
