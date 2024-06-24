@@ -29,7 +29,7 @@ end DataPath;
 
 architecture structural of DataPath is
 
-    signal incrementedPC, pc_q, result, readData1, readData2, ALUoperand2, signExtended, zeroExtended, writeData: std_logic_vector(31 downto 0);
+    signal incrementedPC, pc_q, result, readData1, readData2,ALUoperand1, ALUoperand2, ALUoperand2_mono, signExtended, zeroExtended, writeData: std_logic_vector(31 downto 0);
     signal branchOffset, branchTarget, pc_d: std_logic_vector(31 downto 0);
     signal jumpTarget: std_logic_vector(31 downto 0);
     signal writeRegister   : std_logic_vector(4 downto 0);
@@ -49,6 +49,8 @@ architecture structural of DataPath is
     signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
     signal signExtended_2: std_logic_vector(31 downto 0);
 
+    signal rs_2, rt_2: std_logic_vector(4 downto 0);
+
     -- Stage 3 EX/MEM
     signal uins_3: Microinstruction;
     signal instruction_3: std_logic_vector(31 downto 0);
@@ -65,11 +67,10 @@ architecture structural of DataPath is
     signal result_4: std_logic_vector(31 downto 0);
     signal data_i_4: std_logic_vector(31 downto 0);
 
-    -- Dependencie signal for data hazard detection
-    signal data_dependency: std_logic;
-
-    signal iamworking: std_logic_vector(0 downto 0);
-
+    -- Dependency signal for data hazard detection
+    signal forward_a: std_logic_vector(1 downto 0);
+    signal forward_b: std_logic_vector(1 downto 0);
+    
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
         
@@ -129,13 +130,21 @@ begin
     -- MUX which selects the PC value
     MUX_PC: pc_d <= jumpTarget when uins_3.Jump = '1' else
                     incrementedPC;
-      
-    -- Selects the second ALU operand
-    -- MUX at the ALU input
-    MUX_ALU: ALUoperand2 <= readData2_2 when uins_2.ALUSrc = "00" else
-                            zeroExtended when uins_2.ALUSrc = "01" else
-                            signExtended_2;
     
+    -- Selects the ALU operands
+    -- MUXes at the ALU input
+    MUX_ALU_1: ALUoperand1 <= readData1_2 when (forward_a = "00") else
+                                writeData when (forward_a = "01") else
+                                result_3;
+                                 
+    MUX_ALU_2: ALUoperand2 <= ALUoperand2_mono when (forward_b = "00") else
+                                writeData when (forward_b = "01") else
+                                result_3;
+
+    MUX_ALU_MONO: ALUoperand2_mono <= readData2_2 when uins_2.ALUSrc = "00" else
+                                        zeroExtended when uins_2.ALUSrc = "01" else
+                                        signExtended_2;
+
     -- Selects the data to be written in the register file
     -- MUX at the data memory output
     -- Write data comes from stage 4 of the pipeline
@@ -147,25 +156,14 @@ begin
     -- ALU output address the data memory
     dataAddress <= result_3;
 
-    -- Data dependency detection
-    data_dependency <= '0' when (uins_3.RegWrite = '0' or writeRegister_3 = "0") else
-                        '1' when (uins_3.RegWrite = '1' and (writeRegister_3 = rs_2 or writeRegister_2 = rt_2)) else
-                        '0';
+    -- Forwarding unit
+    forward_a <= "01" when (writeRegister_3 = rs_2 and uins_3.RegWrite = '1' and writeRegister_3 /= "00000") else
+                "10" when (writeRegister_4 = rs_2 and uins_4.RegWrite = '1' and writeRegister_4 /= "00000") else
+                "00";
 
-    -- Tests if the data dependency detection is working
-    -- Just for debug
-    teste: process(clock, reset)
-    begin
-        if reset = '1' then
-            iamworking <= "0";
-        elsif rising_edge(clock) then
-            if data_dependency = '1' then
-                iamworking <= "1";
-            elsif data_dependency = '0' then
-                iamworking <= "0";
-            end if;
-        end if;
-    end process teste;
+    forward_b <= "01" when (writeRegister_3 = rt_2 and uins_3.RegWrite = '1' and writeRegister_3 /= "00000") else
+                "10" when (writeRegister_4 = rt_2 and uins_4.RegWrite = '1' and writeRegister_4 /= "00000") else
+                "00";
 
     -- Pipeline stage 1 IF/ID
     stage_1: process(clock, reset)
@@ -181,7 +179,7 @@ begin
         end if;
     end process stage_1;
 
-    -- Pipeline stage 2 EX/MEM
+    -- Pipeline stage 2 ID/EX
     stage_2: process(clock, reset)
     begin
         if reset = '1' then
@@ -192,6 +190,8 @@ begin
             readData2_2 <= (others => '0');
             signExtended_2 <= (others => '0');
             writeRegister_2 <= (others => '0');
+            rs_2 <= (others => '0');
+            rt_2 <= (others => '0');
 
         elsif rising_edge(clock) then
             uins_2 <= uins_1;
@@ -202,10 +202,12 @@ begin
             readData1_2 <= readData1;
             readData2_2 <= readData2;
             signExtended_2 <= signExtended;
+            rs_2 <= rs;
+            rt_2 <= rt;
         end if;
     end process stage_2;
 
-    -- Pipeline stage 3 MEM/WB
+    -- Pipeline stage 3 EX/MEM
     stage_3: process(clock, reset)
     begin
         if reset = '1' then
@@ -225,7 +227,7 @@ begin
         end if;
     end process stage_3;
 
-    -- Pipeline stage 4
+    -- Pipeline stage 4 MEM/WB
     stage_4: process(clock, reset)
     begin
         if reset = '1' then
@@ -263,7 +265,7 @@ begin
     -- Arithmetic/Logic Unit
     ALU: entity work.ALU(behavioral)
         port map (
-            operand1    => readData1_2,
+            operand1    => ALUoperand1,
             operand2    => ALUoperand2,
             result      => result,
             zero        => zero,
