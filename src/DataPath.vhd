@@ -170,7 +170,7 @@ begin
 
     -- Control signal for the PC register
     -- Creates a bubble in the pipeline 
-    pc_ce <= '0' when (hazard_data = "01") else
+    pc_ce <= '0' when data_dependency = '1' else
             '1';
 
     data_dependency <= '1' when uins_2.memToReg = '1' and (rs = rt_2 or rt = rt_2) else 
