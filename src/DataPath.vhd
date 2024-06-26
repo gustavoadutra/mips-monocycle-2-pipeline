@@ -197,6 +197,7 @@ begin
             instruction_1 <= (others => '0');
             incrementedPC_1 <= (others => '0');
 
+        -- If detected a data hazard, creates a bubble in the pipeline
         elsif rising_edge(clock) and data_dependency = '0' then
             instruction_1 <= instruction;
             incrementedPC_1 <= incrementedPC;
@@ -205,9 +206,9 @@ begin
     end process stage_1;
     
     -- Pipeline stage 2 ID/EX
-    stage_2: process(clock, reset)
+    stage_2: process(clock, reset, hazard_data, data_dependency)
     begin
-        if (reset = '1' or hazard_data = "01") then
+        if (reset = '1' or hazard_data = "01") and data_dependency = '1' then
             instruction_2 <= (others => '0');
             incrementedPC_2 <= (others => '0');
             
