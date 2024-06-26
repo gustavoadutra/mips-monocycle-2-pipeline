@@ -88,7 +88,7 @@ architecture structural of DataPath is
     
 begin
 
-    -- incrementedPC points the next instruction address
+    -- IncrementedPC points the next instruction address
     -- ADDER over the PC register
     ADDER_PC: incrementedPC <= STD_LOGIC_VECTOR(UNSIGNED(pc_q) + TO_UNSIGNED(4,32));
     -- PC register
@@ -158,15 +158,6 @@ begin
     
     -- ALU output address the data memory
     dataAddress <= result_3;
-
-    -- Forwarding unit
-    forward_a <= "01" when (writeRegister_3 = rs_2 and uins_3.RegWrite = '1' and writeRegister_3 /= "00000") else
-                "10" when (writeRegister_4 = rs_2 and uins_4.RegWrite = '1' and writeRegister_4 /= "00000") else
-                "00";
-
-    forward_b <= "01" when (writeRegister_3 = rt_2 and uins_3.RegWrite = '1' and writeRegister_3 /= "00000") else
-                "10" when (writeRegister_4 = rt_2 and uins_4.RegWrite = '1' and writeRegister_4 /= "00000") else
-                "00";
 
     -- Control signal for the PC register
     -- Creates a bubble in the pipeline 
@@ -287,7 +278,6 @@ begin
             readData2        => readData2
         );
     
-    
     -- Arithmetic/Logic Unit
     ALU: entity work.ALU(behavioral)
         port map (
@@ -298,4 +288,17 @@ begin
             operation   => uins_2.instruction
         );
 
+    Forwarding_instance: entity work.ForwardingUnit
+        port map (
+            clock => clock,
+            reset => reset,
+            writeRegister_4 => writeRegister_4,
+            writeRegister_3 => writeRegister_3,
+            rs_2 => rs_2,
+            rt_2 => rt_2,
+            RegWrite_3 => uins_3.RegWrite,
+            RegWrite_4 => uins_4.RegWrite,
+            forward_a => forward_a,
+            forward_b => forward_b
+        );
 end structural;
