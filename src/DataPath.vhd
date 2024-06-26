@@ -71,7 +71,7 @@ architecture structural of DataPath is
     signal forward_a: std_logic_vector(1 downto 0);
     signal forward_b: std_logic_vector(1 downto 0);
 
-    signal hazard_data: std_logic_vector(1 downto 0);
+    signal Hazard: std_logic;
     signal data_dependency: std_logic;
     signal pc_ce: std_logic;
     
@@ -100,7 +100,7 @@ begin
         port map (
             clock       => clock,
             reset       => reset,
-            ce          => pc_ce, 
+            ce          => data_dependency, 
             d           => pc_d, 
             q           => pc_q
         );
@@ -159,28 +159,6 @@ begin
     -- ALU output address the data memory
     dataAddress <= result_3;
 
-    -- Control signal for the PC register
-    -- Creates a bubble in the pipeline 
-    pc_ce <= '0' when data_dependency = '1' else
-            '1';
-
-    data_dependency <= '1' when uins_2.memToReg = '1' and (rs = rt_2 or rt = rt_2) else 
-                        '0';
-    
-    -- Hazard detection unit
-    hazard_data_control: process(clock, reset)
-    begin
-        if reset = '1' then
-            hazard_data <= "00";
-        elsif rising_edge(clock) then
-            if (data_dependency = '1') then
-                hazard_data <= "01";
-            else
-                hazard_data <= "00";
-            end if;
-        end if;
-    end process;
-
     -- Pipeline stage 1 IF/ID
     stage_1: process(clock, reset)
     begin
@@ -189,7 +167,7 @@ begin
             incrementedPC_1 <= (others => '0');
 
         -- If detected a data hazard, creates a bubble in the pipeline
-        elsif rising_edge(clock) and data_dependency = '0' then
+        elsif (rising_edge(clock) and data_dependency = '1') then
             instruction_1 <= instruction;
             incrementedPC_1 <= incrementedPC;
             uins_1 <= uins;
@@ -197,9 +175,9 @@ begin
     end process stage_1;
     
     -- Pipeline stage 2 ID/EX
-    stage_2: process(clock, reset, hazard_data, data_dependency)
+    stage_2: process(clock, reset, Hazard, data_dependency)
     begin
-        if (reset = '1' or hazard_data = "01") and data_dependency = '1' then
+        if (reset = '1' or Hazard = '1') and data_dependency = '0' then
             instruction_2 <= (others => '0');
             incrementedPC_2 <= (others => '0');
             
@@ -301,4 +279,16 @@ begin
             forward_a => forward_a,
             forward_b => forward_b
         );
+
+    Hazard_detection: entity work.HazardDetectionUnit
+            port map (
+                clock => clock,
+                reset => reset,
+                memToReg_2 => uins_2.memToReg,
+                rt_2 => rt_2,
+                rt => rt,
+                rs => rs,
+                data_dependency => data_dependency,
+                Hazard => Hazard
+            );
 end structural;

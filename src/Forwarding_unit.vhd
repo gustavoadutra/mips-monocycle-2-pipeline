@@ -12,7 +12,6 @@ entity ForwardingUnit is
         rt_2                : in  std_logic_vector(4 downto 0);
         RegWrite_3          : in  std_logic;
         RegWrite_4          : in  std_logic;
-        
         -- Outputs
         forward_a           : out std_logic_vector(1 downto 0);
         forward_b           : out std_logic_vector(1 downto 0)
