@@ -29,7 +29,7 @@ end DataPath;
 
 architecture structural of DataPath is
 
-    signal incrementedPC, pc_q, result, readData1, readData2, ALUoperand2, signExtended, zeroExtended, writeData: std_logic_vector(31 downto 0);
+    signal incrementedPC, pc_q, result, readData1, readData2,ALUoperand1, ALUoperand2, ALUoperand2_mono, signExtended, zeroExtended, writeData: std_logic_vector(31 downto 0);
     signal branchOffset, branchTarget, pc_d: std_logic_vector(31 downto 0);
     signal jumpTarget: std_logic_vector(31 downto 0);
     signal writeRegister   : std_logic_vector(4 downto 0);
@@ -49,6 +49,8 @@ architecture structural of DataPath is
     signal readData1_2, readData2_2: std_logic_vector(31 downto 0);
     signal signExtended_2: std_logic_vector(31 downto 0);
 
+    signal rs_2, rt_2: std_logic_vector(4 downto 0);
+
     -- Stage 3 EX/MEM
     signal uins_3: Microinstruction;
     signal instruction_3: std_logic_vector(31 downto 0);
@@ -65,11 +67,14 @@ architecture structural of DataPath is
     signal result_4: std_logic_vector(31 downto 0);
     signal data_i_4: std_logic_vector(31 downto 0);
 
-    -- Dependencie signal for data hazard detection
+    -- Dependency signal for data hazard detection
+    signal forward_a: std_logic_vector(1 downto 0);
+    signal forward_b: std_logic_vector(1 downto 0);
+
+    signal Hazard: std_logic;
     signal data_dependency: std_logic;
-
-    signal iamworking: std_logic_vector(0 downto 0);
-
+    signal pc_ce: std_logic;
+    
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
         
@@ -83,10 +88,9 @@ architecture structural of DataPath is
     
 begin
 
-    -- incrementedPC points the next instruction address
+    -- IncrementedPC points the next instruction address
     -- ADDER over the PC register
     ADDER_PC: incrementedPC <= STD_LOGIC_VECTOR(UNSIGNED(pc_q) + TO_UNSIGNED(4,32));
-    
     -- PC register
     PROGRAM_COUNTER:    entity work.RegisterNbits
         generic map (
@@ -96,7 +100,7 @@ begin
         port map (
             clock       => clock,
             reset       => reset,
-            ce          => '1', 
+            ce          => data_dependency, 
             d           => pc_d, 
             q           => pc_q
         );
@@ -110,7 +114,7 @@ begin
     
     -- Sign extends the low 16 bits of instruction 
     SIGN_EX: signExtended <= x"FFFF" & instruction_1(15 downto 0) when instruction_1(15) = '1' else 
-                    x"0000" & instruction_1(15 downto 0);
+                                x"0000" & instruction_1(15 downto 0);
                     
     -- Zero extends the low 16 bits of instruction 
     ZERO_EX: zeroExtended <= x"0000" & instruction_2(15 downto 0);
@@ -127,15 +131,23 @@ begin
     jumpTarget <= incrementedPC_3(31 downto 28) & instruction_3(25 downto 0) & "00";
     
     -- MUX which selects the PC value
-    MUX_PC: pc_d <= jumpTarget when uins_3.Jump = '1' else
-                    incrementedPC;
-      
-    -- Selects the second ALU operand
-    -- MUX at the ALU input
-    MUX_ALU: ALUoperand2 <= readData2_2 when uins_2.ALUSrc = "00" else
-                            zeroExtended when uins_2.ALUSrc = "01" else
-                            signExtended_2;
+    MUX_PC: pc_d <= jumpTarget when (uins_3.Jump = '1') else
+                        incrementedPC;
     
+    -- Selects the ALU operands
+    -- MUXes at the ALU input
+    MUX_ALU_1: ALUoperand1 <= readData1_2 when (forward_a = "00") else
+                                writeData when (forward_a = "01") else
+                                result_3;
+                                 
+    MUX_ALU_2: ALUoperand2 <= ALUoperand2_mono when (forward_b = "00") else
+                                writeData when (forward_b = "01") else
+                                result_3;
+
+    MUX_ALU_MONO: ALUoperand2_mono <= readData2_2 when uins_2.ALUSrc = "00" else
+                                        zeroExtended when uins_2.ALUSrc = "01" else
+                                        signExtended_2;
+
     -- Selects the data to be written in the register file
     -- MUX at the data memory output
     -- Write data comes from stage 4 of the pipeline
@@ -147,26 +159,6 @@ begin
     -- ALU output address the data memory
     dataAddress <= result_3;
 
-    -- Data dependency detection
-    data_dependency <= '0' when (uins_2.RegWrite = '0' or writeRegister_2 = "0") else
-                        '1' when (uins_2.RegWrite = '1' and (writeRegister_2 = rs or writeRegister_2 = rt)) else
-                        '0';
-
-    -- Tests if the data dependency detection is working
-    -- Just for debug
-    teste: process(clock, reset)
-    begin
-        if reset = '1' then
-            iamworking <= "0";
-        elsif rising_edge(clock) then
-            if data_dependency = '1' then
-                iamworking <= "1";
-            elsif data_dependency = '0' then
-                iamworking <= "0";
-            end if;
-        end if;
-    end process teste;
-
     -- Pipeline stage 1 IF/ID
     stage_1: process(clock, reset)
     begin
@@ -174,17 +166,18 @@ begin
             instruction_1 <= (others => '0');
             incrementedPC_1 <= (others => '0');
 
-        elsif rising_edge(clock) then
-            uins_1 <= uins;
+        -- If detected a data hazard, creates a bubble in the pipeline
+        elsif (rising_edge(clock) and data_dependency = '1') then
             instruction_1 <= instruction;
             incrementedPC_1 <= incrementedPC;
+            uins_1 <= uins;
         end if;
     end process stage_1;
-
-    -- Pipeline stage 2 EX/MEM
-    stage_2: process(clock, reset)
+    
+    -- Pipeline stage 2 ID/EX
+    stage_2: process(clock, reset, Hazard, data_dependency)
     begin
-        if reset = '1' then
+        if (reset = '1' or Hazard = '1') and data_dependency = '0' then
             instruction_2 <= (others => '0');
             incrementedPC_2 <= (others => '0');
             
@@ -192,6 +185,8 @@ begin
             readData2_2 <= (others => '0');
             signExtended_2 <= (others => '0');
             writeRegister_2 <= (others => '0');
+            rs_2 <= (others => '0');
+            rt_2 <= (others => '0');
 
         elsif rising_edge(clock) then
             uins_2 <= uins_1;
@@ -202,10 +197,12 @@ begin
             readData1_2 <= readData1;
             readData2_2 <= readData2;
             signExtended_2 <= signExtended;
+            rs_2 <= rs;
+            rt_2 <= rt;
         end if;
     end process stage_2;
 
-    -- Pipeline stage 3 MEM/WB
+    -- Pipeline stage 3 EX/MEM
     stage_3: process(clock, reset)
     begin
         if reset = '1' then
@@ -225,7 +222,7 @@ begin
         end if;
     end process stage_3;
 
-    -- Pipeline stage 4
+    -- Pipeline stage 4 MEM/WB
     stage_4: process(clock, reset)
     begin
         if reset = '1' then
@@ -259,15 +256,39 @@ begin
             readData2        => readData2
         );
     
-    
     -- Arithmetic/Logic Unit
     ALU: entity work.ALU(behavioral)
         port map (
-            operand1    => readData1_2,
+            operand1    => ALUoperand1,
             operand2    => ALUoperand2,
             result      => result,
             zero        => zero,
             operation   => uins_2.instruction
         );
 
+    Forwarding_instance: entity work.ForwardingUnit
+        port map (
+            clock => clock,
+            reset => reset,
+            writeRegister_4 => writeRegister_4,
+            writeRegister_3 => writeRegister_3,
+            rs_2 => rs_2,
+            rt_2 => rt_2,
+            RegWrite_3 => uins_3.RegWrite,
+            RegWrite_4 => uins_4.RegWrite,
+            forward_a => forward_a,
+            forward_b => forward_b
+        );
+
+    Hazard_detection: entity work.HazardDetectionUnit
+            port map (
+                clock => clock,
+                reset => reset,
+                memToReg_2 => uins_2.memToReg,
+                rt_2 => rt_2,
+                rt => rt,
+                rs => rs,
+                data_dependency => data_dependency,
+                Hazard => Hazard
+            );
 end structural;

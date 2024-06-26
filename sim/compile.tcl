@@ -5,6 +5,8 @@ set sourceFiles {
     ../src/MIPS_package.vhd
     ../src/RegisterNbits.vhd
     ../src/RegisterFile.vhd
+    ../src/Forwarding_unit.vhd
+    ../src/Hazard_detection_unit.vhd
     ../src/ALU.vhd
     ../src/DataPath.vhd 
     ../src/ControlPath.vhd

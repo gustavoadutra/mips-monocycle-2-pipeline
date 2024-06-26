@@ -1,5 +1,12 @@
  Address    Code        Basic                     Source
 
-0x00400000  0x240d0001  addiu $13,$0,0x00000006        addiu   $t5, $zero, 1           # t5 = constant 1
-0x00400004  0x3c011001  lui $1,0x00001001     12       la      $t6, size               # 
-0x00400008  0x342e001c  ori $14,$1,0x0000001c      
+0x00400000  0x3c011001  lui $1,0x00001001     1    la $t4, a                #carrega & de a em $t4
+0x00400004  0x342c0000  ori $12,$1,0x00000000      
+0x00400008  0x8d8d0000  lw $13,0x00000000($12)2    lw $t5, ($t4)            #lê o conteudo de a para $t5     --> Forward de $t4
+0x0040000c  0x25a90010  addiu $9,$13,0x00000014    addiu $t1, $t5, 0x10     #faz $t5 + 0x10                  --> Hazard Detection LW e geração de Bolha
+0x00400010  0x240a0020  addiu $10,$0,0x00000025    addiu $t2, $zero, 0x20   #carrega 0x20 em $t2
+0x00400014  0x012a5821  addu $11,$9,$10       6    addu $t3, $t1, $t2       #                                --> Forward do $t2 e $t3
+0x00400018  0x24090010  addiu $9,$0,0x000000108    addiu $t1, $zero, 0x10   #carrega 0x10 em $t2
+0x0040001c  0x240a0020  addiu $10,$0,0x00000029    addiu $t2, $zero, 0x20   #carrega 0x20 em $t2
+0x00400020  0x01495821  addu $11,$10,$9       10   addu $t3, $t2, $t1       #                                --> Forward do $t2 e $t3
+0x00400024  0xad8b0000  sw $11,0x00000000($12)12   sw $t3, ($t4)            #grava   $t3 no end de $t4       --> Forward do $t3
