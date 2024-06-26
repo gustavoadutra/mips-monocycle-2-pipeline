@@ -70,6 +70,10 @@ architecture structural of DataPath is
     -- Dependency signal for data hazard detection
     signal forward_a: std_logic_vector(1 downto 0);
     signal forward_b: std_logic_vector(1 downto 0);
+
+    signal hazard_data: std_logic_vector(1 downto 0);
+    signal data_dependency: std_logic;
+    signal pc_ce: std_logic;
     
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
@@ -87,7 +91,6 @@ begin
     -- incrementedPC points the next instruction address
     -- ADDER over the PC register
     ADDER_PC: incrementedPC <= STD_LOGIC_VECTOR(UNSIGNED(pc_q) + TO_UNSIGNED(4,32));
-    
     -- PC register
     PROGRAM_COUNTER:    entity work.RegisterNbits
         generic map (
@@ -97,7 +100,7 @@ begin
         port map (
             clock       => clock,
             reset       => reset,
-            ce          => '1', 
+            ce          => pc_ce, 
             d           => pc_d, 
             q           => pc_q
         );
@@ -111,7 +114,7 @@ begin
     
     -- Sign extends the low 16 bits of instruction 
     SIGN_EX: signExtended <= x"FFFF" & instruction_1(15 downto 0) when instruction_1(15) = '1' else 
-                    x"0000" & instruction_1(15 downto 0);
+                                x"0000" & instruction_1(15 downto 0);
                     
     -- Zero extends the low 16 bits of instruction 
     ZERO_EX: zeroExtended <= x"0000" & instruction_2(15 downto 0);
@@ -128,8 +131,8 @@ begin
     jumpTarget <= incrementedPC_3(31 downto 28) & instruction_3(25 downto 0) & "00";
     
     -- MUX which selects the PC value
-    MUX_PC: pc_d <= jumpTarget when uins_3.Jump = '1' else
-                    incrementedPC;
+    MUX_PC: pc_d <= jumpTarget when (uins_3.Jump = '1') else
+                        incrementedPC;
     
     -- Selects the ALU operands
     -- MUXes at the ALU input
@@ -165,6 +168,28 @@ begin
                 "10" when (writeRegister_4 = rt_2 and uins_4.RegWrite = '1' and writeRegister_4 /= "00000") else
                 "00";
 
+    -- Control signal for the PC register
+    -- Creates a bubble in the pipeline 
+    pc_ce <= '0' when (hazard_data = "01") else
+            '1';
+
+    data_dependency <= '1' when uins_2.memToReg = '1' and (rs = rt_2 or rt = rt_2) else 
+                        '0';
+    
+    -- Hazard detection unit
+    hazard_data_control: process(clock, reset)
+    begin
+        if reset = '1' then
+            hazard_data <= "00";
+        elsif rising_edge(clock) then
+            if (data_dependency = '1') then
+                hazard_data <= "01";
+            else
+                hazard_data <= "00";
+            end if;
+        end if;
+    end process;
+
     -- Pipeline stage 1 IF/ID
     stage_1: process(clock, reset)
     begin
@@ -172,17 +197,17 @@ begin
             instruction_1 <= (others => '0');
             incrementedPC_1 <= (others => '0');
 
-        elsif rising_edge(clock) then
-            uins_1 <= uins;
+        elsif rising_edge(clock) and data_dependency = '0' then
             instruction_1 <= instruction;
             incrementedPC_1 <= incrementedPC;
+            uins_1 <= uins;
         end if;
     end process stage_1;
-
+    
     -- Pipeline stage 2 ID/EX
     stage_2: process(clock, reset)
     begin
-        if reset = '1' then
+        if (reset = '1' or hazard_data = "01") then
             instruction_2 <= (others => '0');
             incrementedPC_2 <= (others => '0');
             
