@@ -54,8 +54,8 @@ begin
         generic map (
             SIZE            => 100,                 -- Memory depth
             START_ADDRESS   => MARS_INSTRUCTION_OFFSET,    -- MARS initial address (mapped to memory address 0x00000000)
-            --imageFileName   => "BubbleSort_code.txt"
-            imageFileName   => "JustAddNumbers_code.txt"
+            imageFileName   => "BubbleSort_code.txt"
+            --imageFileName   => "JustAddNumbers_code.txt"
         )
         port map (
             clock           => clock,
