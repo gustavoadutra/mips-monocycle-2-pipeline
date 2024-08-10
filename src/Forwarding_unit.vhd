@@ -20,27 +20,15 @@ end entity ForwardingUnit;
 
 architecture Behavioral of ForwardingUnit is
 begin 
-    process(clock, reset)
-    begin
-        if reset = '1' then
-            forward_a <= "00";
-            forward_b <= "00";
-        elsif rising_edge(clock) then
-            if RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rs_2 then
-                forward_a <= "10";
-            elsif RegWrite_4 = '1' and writeRegister_4 /= "00000" and writeRegister_4 = rs_2 then
-                forward_a <= "01";
-            else
-                forward_a <= "00";
-            end if;
-            
-            if RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rt_2 then
-                forward_b <= "10";
-            elsif RegWrite_4 = '1' and writeRegister_4 /= "00000" and writeRegister_4 = rt_2 then
-                forward_b <= "01";
-            else
-                forward_b <= "00";
-            end if;
-        end if;
-    end process;
+    -- Forwarding logic without clock
+    forward_a <= "10" when (RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rs_2) else
+                 "01" when (RegWrite_4 = '1' and writeRegister_4 /= "00000" and writeRegister_4 = rs_2 and 
+                 not(RegWrite_3 = '1' and writeRegister_3 /= "00000"  and writeRegister_3 /= rs_2)) else
+                 "00";
+
+    forward_b <= "10" when (RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rt_2) else
+                 "01" when (RegWrite_4 = '1' and writeRegister_4 /= "00000" and writeRegister_4 = rt_2 and 
+                 not(RegWrite_3 = '1' and writeRegister_3 /= "00000"  and writeRegister_3 /= rt_2)) else
+                 "00";
+
 end architecture Behavioral;
