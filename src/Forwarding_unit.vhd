@@ -21,14 +21,16 @@ end entity ForwardingUnit;
 architecture Behavioral of ForwardingUnit is
 begin 
     -- Forwarding logic without clock
-    forward_a <= "10" when (RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rs_2) else
-                 "01" when (RegWrite_4 = '1' and writeRegister_4 /= "00000" and writeRegister_4 = rs_2 and 
-                 not(RegWrite_3 = '1' and writeRegister_3 /= "00000"  and writeRegister_3 /= rs_2)) else
+    forward_a <=  "01" when (RegWrite_4 = '1' and writeRegister_4 /= "00000" and writeRegister_4 = rs_2) and
+                  not(RegWrite_3 = '1' and writeRegister_3 /= rs_2 and writeRegister_3 /= "00000") else
+                 "10" when (RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rs_2) else
                  "00";
 
-    forward_b <= "10" when (RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rt_2) else
-                 "01" when (RegWrite_4 = '1' and writeRegister_4 /= "00000" and writeRegister_4 = rt_2 and 
-                 not(RegWrite_3 = '1' and writeRegister_3 /= "00000"  and writeRegister_3 /= rt_2)) else
-                 "00";
+    -- In LW instruction the rt register is not useful and do not need to be forwarded as result_3
+    forward_b <= "01" when (RegWrite_4 = '1' and writeRegister_4 /= "00000" and writeRegister_4 = rt_2) and
+                not(RegWrite_3 = '1' and writeRegister_3 /= rt_2 and writeRegister_3 /= "00000") else
+                "10" when (RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rt_2 and
+                 not((RegWrite_3 = '1' and writeRegister_3 /= "00000" and writeRegister_3 = rs_2 and rt_2 = rs_2))) else
+                "00";
 
 end architecture Behavioral;
