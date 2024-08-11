@@ -22,7 +22,8 @@ entity DataPath is
         dataAddress         : out std_logic_vector(31 downto 0);  -- Data memory address bus
         data_i              : in  std_logic_vector(31 downto 0);  -- Data bus from data memory 
         data_o              : out std_logic_vector(31 downto 0);  -- Data bus to data memory
-        uins                : in  Microinstruction                -- Control path microinstruction
+        uins                : in  Microinstruction;                -- Control path microinstruction
+        uins_out            : out Microinstruction                -- Data path microinstruction
     );
 end DataPath;
 
@@ -69,7 +70,8 @@ architecture structural of DataPath is
     signal writeRegister_4: std_logic_vector(4 downto 0);
     signal result_4: std_logic_vector(31 downto 0);
     signal data_i_4: std_logic_vector(31 downto 0);
-
+    
+    signal zero_4: std_logic;
     -- Dependency signal for data hazard detection
     signal forward_a: std_logic_vector(1 downto 0);
     signal forward_b: std_logic_vector(1 downto 0);
@@ -147,11 +149,11 @@ begin
     -- MUX which selects the PC value
     -- Threats the jump and branches that are in sequence in the code
     MUX_PC: pc_d <= branchTarget when (uins_3.Branch and zero_3) = '1' and not(uins_4.Jump = '1') else 
-                    jumpTarget when uins_3.Jump = '1' and not(uins_4.Jump = '1') else
+                    jumpTarget when uins_3.Jump = '1' and not(uins_4.Jump = '1') and not((uins_4.Branch and zero_4) = '1') else
                     incrementedPC;
 
     -- Flush the pipeline when a branch is taken
-    MUX_RESET_STAGES: reset_taken_stages <= "01" when (((uins_3.Branch and zero_3) = '1') or uins_3.Jump = '1') and uins_4.Jump = '0' else
+    MUX_RESET_STAGES: reset_taken_stages <= "01" when (((uins_3.Branch and zero_3) = '1') or uins_3.Jump = '1') and not(uins_4.Jump = '1') and not((uins_4.Branch and zero_4) = '1') else
                                              "00";
 
     -- Selects the ALU operands
@@ -185,6 +187,7 @@ begin
     -- ALU output address the data memory
     dataAddress <= result_3;
 
+    uins_out <= uins_3;
     -- Synchronizes the reset signal
     process(clock, reset)
     begin
@@ -281,6 +284,7 @@ begin
             writeRegister_4 <= writeRegister_3;
             result_4 <= result_3;
             data_i_4 <= data_i;
+            zero_4 <= zero_3;
         end if;
     end process stage_4;
 

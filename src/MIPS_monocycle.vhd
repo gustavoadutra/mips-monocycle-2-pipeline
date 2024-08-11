@@ -30,6 +30,7 @@ end MIPS_monocycle;
 architecture structural of MIPS_monocycle is
     
     signal uins: Microinstruction;
+    signal uins_out: Microinstruction;
 
 begin
 
@@ -51,7 +52,7 @@ begin
             reset               => reset,
             
             uins                => uins,
-             
+            uins_out            => uins_out,
             instructionAddress  => instructionAddress,
             instruction         => instruction,
              
@@ -60,6 +61,6 @@ begin
             data_o              => data_o
          );
      
-     MemWrite <= uins.MemWrite;
+     MemWrite <= uins_out.MemWrite;
      
 end structural;
