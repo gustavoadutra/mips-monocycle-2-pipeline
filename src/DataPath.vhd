@@ -79,7 +79,8 @@ architecture structural of DataPath is
 
     signal reset_taken_stages: std_logic_vector(1 downto 0);
     signal reset_taken_stages_sync: std_logic_vector(1 downto 0);
-    
+
+
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
         
@@ -90,6 +91,13 @@ architecture structural of DataPath is
     alias rd: std_logic_vector(4 downto 0) is instruction_1(15 downto 11);
     
     signal zero : std_logic; 
+
+    -- Testes
+    alias rs_0: std_logic_vector(4 downto 0) is instruction(25 downto 21);
+    alias rt_0: std_logic_vector(4 downto 0) is instruction(20 downto 16);
+    alias rd_0: std_logic_vector(4 downto 0) is instruction(15 downto 11);
+    signal bypass: std_logic_vector(1 downto 0);
+    signal readData1_1_bypass, readData2_1_bypass: std_logic_vector(31 downto 0);
     
 begin
 
@@ -162,6 +170,16 @@ begin
     -- MUX at the data memory output
     -- Write data comes from stage 4 of the pipeline
     MUX_DATA_MEM: writeData <= data_i_4 when uins_4.memToReg = '1' else result_4;
+
+    -- Bypass register write if data dependency is detected
+    readData1_1_bypass <= writeData when (writeRegister_4 = rs) and uins_4.RegWrite = '1' else readData1;
+    readData2_1_bypass <= writeData when (writeRegister_4 = rt) and uins_4.RegWrite = '1' else readData2;
+        
+    bypass <= "01" when (writeRegister_4 = rs) and uins_4.RegWrite = '1' else
+                    "10" when (writeRegister_4 = rt) and uins_4.RegWrite = '1' else
+                    "00";
+    --readData1_1_bypass <= readData1;
+    --readData2_1_bypass <= readData2;
     
     -- Data to data memory comes from the second read register at register file
     data_o <= readData2_2;
@@ -215,7 +233,7 @@ begin
 
             writeRegister_2 <= writeRegister;
             readData1_2 <= readData1;
-            readData2_2 <= readData2;
+            readData2_2 <= readData2_1_bypass;
             signExtended_2 <= signExtended;
             rs_2 <= rs;
             rt_2 <= rt;
