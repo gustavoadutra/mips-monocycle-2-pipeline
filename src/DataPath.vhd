@@ -57,6 +57,7 @@ architecture structural of DataPath is
     signal incrementedPC_3: std_logic_vector(31 downto 0);
 
     signal writeRegister_3: std_logic_vector(4 downto 0);
+    signal readData2_3: std_logic_vector(31 downto 0);
     signal result_3: std_logic_vector(31 downto 0);
     signal signExtended_3: std_logic_vector(31 downto 0);
 
@@ -179,7 +180,7 @@ begin
             "00";
     
     -- Data to data memory comes from the second read register at register file
-    data_o <= readData2_2;
+    data_o <= readData2_3;
     
     -- ALU output address the data memory
     dataAddress <= result_3;
@@ -245,6 +246,7 @@ begin
             incrementedPC_3 <= (others => '0');
 
             writeRegister_3 <= (others => '0');
+            readData2_3 <= (others => '0');
             result_3 <= (others => '0');
             signExtended_3 <= (others => '0');
             zero_3 <= '0';
@@ -255,6 +257,7 @@ begin
             incrementedPC_3 <= incrementedPC_2;
 
             writeRegister_3 <= writeRegister_2;
+            readData2_3 <= readData2_2;
             signExtended_3 <= signExtended_2;
             result_3 <= result;
             zero_3 <= zero;
