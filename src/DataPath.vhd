@@ -144,12 +144,13 @@ begin
     jumpTarget <= incrementedPC_3(31 downto 28) & instruction_3(25 downto 0) & "00";
     
     -- MUX which selects the PC value
-    MUX_PC: pc_d <= branchTarget when (uins_3.Branch and zero_3) = '1' else 
-                    jumpTarget when uins_3.Jump = '1' else
+    -- Threats the jump and branches that are in sequence in the code
+    MUX_PC: pc_d <= branchTarget when (uins_3.Branch and zero_3) = '1' and not(uins_4.Jump = '1') else 
+                    jumpTarget when uins_3.Jump = '1' and not(uins_4.Jump = '1') else
                     incrementedPC;
 
     -- Flush the pipeline when a branch is taken
-    MUX_RESET_STAGES: reset_taken_stages <= "01" when (uins_3.Branch and zero_3) = '1' else
+    MUX_RESET_STAGES: reset_taken_stages <= "01" when (((uins_3.Branch and zero_3) = '1') or uins_3.Jump = '1') and uins_4.Jump = '0' else
                                              "00";
 
     -- Selects the ALU operands
@@ -172,14 +173,10 @@ begin
     MUX_DATA_MEM: writeData <= data_i_4 when uins_4.memToReg = '1' else result_4;
 
     -- Bypass register write if data dependency is detected
-    readData1_1_bypass <= writeData when (writeRegister_4 = rs) and uins_4.RegWrite = '1' else readData1;
     readData2_1_bypass <= writeData when (writeRegister_4 = rt) and uins_4.RegWrite = '1' else readData2;
         
-    bypass <= "01" when (writeRegister_4 = rs) and uins_4.RegWrite = '1' else
-                    "10" when (writeRegister_4 = rt) and uins_4.RegWrite = '1' else
-                    "00";
-    --readData1_1_bypass <= readData1;
-    --readData2_1_bypass <= readData2;
+    bypass <= "10" when (writeRegister_4 = rt) and uins_4.RegWrite = '1' else
+            "00";
     
     -- Data to data memory comes from the second read register at register file
     data_o <= readData2_2;
@@ -198,14 +195,14 @@ begin
     end process;
 
     -- Pipeline stage 1 IF/ID
-    stage_1: process(clock, reset, reset_taken_stages_sync)
+    stage_1: process(clock, reset)
     begin
-        if reset = '1' or reset_taken_stages_sync = "01" then
+        if reset = '1' then
             instruction_1 <= (others => '0');
             incrementedPC_1 <= (others => '0');
 
         -- If detected a data hazard, creates a bubble in the pipeline
-        elsif (rising_edge(clock) and data_dependency = '1') then
+        elsif (rising_edge(clock) and data_dependency = '1' and reset_taken_stages = "00") then
             instruction_1 <= instruction;
             incrementedPC_1 <= incrementedPC;
             uins_1 <= uins;
@@ -215,7 +212,7 @@ begin
     -- Pipeline stage 2 ID/EX
     stage_2: process(clock, reset, Hazard, data_dependency, reset_taken_stages_sync)
     begin
-        if ((reset = '1' or Hazard = '1') and data_dependency = '0') or reset_taken_stages_sync = "01" then
+        if  (Hazard = '1' and data_dependency = '0') or reset_taken_stages_sync = "01" or reset = '1' then
             instruction_2 <= (others => '0');
             incrementedPC_2 <= (others => '0');
             
