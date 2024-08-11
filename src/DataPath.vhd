@@ -58,7 +58,9 @@ architecture structural of DataPath is
 
     signal writeRegister_3: std_logic_vector(4 downto 0);
     signal result_3: std_logic_vector(31 downto 0);
+    signal signExtended_3: std_logic_vector(31 downto 0);
 
+    signal zero_3: std_logic;
     -- Stage 4 MEM/WB
     signal uins_4: Microinstruction;
     signal instruction_4: std_logic_vector(31 downto 0);
@@ -74,6 +76,9 @@ architecture structural of DataPath is
     signal Hazard: std_logic;
     signal data_dependency: std_logic;
     signal pc_ce: std_logic;
+
+    signal reset_taken_stages: std_logic_vector(1 downto 0);
+    signal reset_taken_stages_sync: std_logic_vector(1 downto 0);
     
     -- Retrieves the rs field from the instruction
     alias rs: std_logic_vector(4 downto 0) is instruction_1(25 downto 21);
@@ -121,22 +126,27 @@ begin
        
     -- Converts the branch offset from words to bytes (multiply by 4) 
     -- Hardware at the second ADDER input
-    -- SHIFT_L: branchOffset <= signExtended(29 downto 0) & "00";
+    SHIFT_L: branchOffset <= signExtended_3(29 downto 0) & "00";
     
     -- Branch target address
     -- Branch ADDER
-    -- ADDER_BRANCH: branchTarget <= STD_LOGIC_VECTOR(UNSIGNED(incrementedPC) + UNSIGNED(branchOffset));
+    ADDER_BRANCH: branchTarget <= STD_LOGIC_VECTOR(UNSIGNED(incrementedPC_3) + UNSIGNED(branchOffset));
     
     -- Jump target address
     jumpTarget <= incrementedPC_3(31 downto 28) & instruction_3(25 downto 0) & "00";
     
     -- MUX which selects the PC value
-    MUX_PC: pc_d <= jumpTarget when (uins_3.Jump = '1') else
-                        incrementedPC;
-    
+    MUX_PC: pc_d <= branchTarget when (uins_3.Branch and zero_3) = '1' else 
+                    jumpTarget when uins_3.Jump = '1' else
+                    incrementedPC;
+
+    -- Flush the pipeline when a branch is taken
+    MUX_RESET_STAGES: reset_taken_stages <= "01" when (uins_3.Branch and zero_3) = '1' else
+                                             "00";
+
     -- Selects the ALU operands
     -- MUXes at the ALU input
-    MUX_ALU_1: ALUoperand1 <= readData1_2 when (forward_a = "00") else
+    MUX_ALU_1: ALUoperand1 <=  readData1_2 when (forward_a = "00") else
                                 writeData when (forward_a = "01") else
                                 result_3;
                                  
@@ -159,10 +169,20 @@ begin
     -- ALU output address the data memory
     dataAddress <= result_3;
 
-    -- Pipeline stage 1 IF/ID
-    stage_1: process(clock, reset)
+    -- Synchronizes the reset signal
+    process(clock, reset)
     begin
         if reset = '1' then
+            reset_taken_stages_sync <= (others => '0');
+        elsif rising_edge(clock) then
+            reset_taken_stages_sync <= reset_taken_stages;
+        end if;
+    end process;
+
+    -- Pipeline stage 1 IF/ID
+    stage_1: process(clock, reset, reset_taken_stages_sync)
+    begin
+        if reset = '1' or reset_taken_stages_sync = "01" then
             instruction_1 <= (others => '0');
             incrementedPC_1 <= (others => '0');
 
@@ -175,9 +195,9 @@ begin
     end process stage_1;
     
     -- Pipeline stage 2 ID/EX
-    stage_2: process(clock, reset, Hazard, data_dependency)
+    stage_2: process(clock, reset, Hazard, data_dependency, reset_taken_stages_sync)
     begin
-        if (reset = '1' or Hazard = '1') and data_dependency = '0' then
+        if ((reset = '1' or Hazard = '1') and data_dependency = '0') or reset_taken_stages_sync = "01" then
             instruction_2 <= (others => '0');
             incrementedPC_2 <= (others => '0');
             
@@ -203,14 +223,16 @@ begin
     end process stage_2;
 
     -- Pipeline stage 3 EX/MEM
-    stage_3: process(clock, reset)
+    stage_3: process(clock, reset, reset_taken_stages_sync)
     begin
-        if reset = '1' then
+        if reset = '1' or reset_taken_stages_sync = "01" then
             instruction_3 <= (others => '0');
             incrementedPC_3 <= (others => '0');
 
             writeRegister_3 <= (others => '0');
             result_3 <= (others => '0');
+            signExtended_3 <= (others => '0');
+            zero_3 <= '0';
 
         elsif rising_edge(clock) then
             uins_3 <= uins_2;
@@ -218,7 +240,9 @@ begin
             incrementedPC_3 <= incrementedPC_2;
 
             writeRegister_3 <= writeRegister_2;
+            signExtended_3 <= signExtended_2;
             result_3 <= result;
+            zero_3 <= zero;
         end if;
     end process stage_3;
 
