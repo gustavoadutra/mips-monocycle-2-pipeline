@@ -63,6 +63,7 @@ architecture structural of DataPath is
     signal signExtended_3: std_logic_vector(31 downto 0);
 
     signal zero_3: std_logic;
+
     -- Stage 4 MEM/WB
     signal uins_4: Microinstruction;
     signal instruction_4: std_logic_vector(31 downto 0);
@@ -70,16 +71,18 @@ architecture structural of DataPath is
     signal writeRegister_4: std_logic_vector(4 downto 0);
     signal result_4: std_logic_vector(31 downto 0);
     signal data_i_4: std_logic_vector(31 downto 0);
-    
+
     signal zero_4: std_logic;
-    -- Dependency signal for data hazard detection
+
+    -- Forwarding signals
     signal forward_a: std_logic_vector(1 downto 0);
     signal forward_b: std_logic_vector(1 downto 0);
 
+    -- Dependency signal for data hazard detection
     signal Hazard: std_logic;
     signal data_dependency: std_logic;
-    signal pc_ce: std_logic;
 
+    -- Reset signal for pipeline stages
     signal reset_taken_stages: std_logic_vector(1 downto 0);
     signal reset_taken_stages_sync: std_logic_vector(1 downto 0);
 
@@ -92,15 +95,12 @@ architecture structural of DataPath is
         
     -- Retrieves the rd field from the instruction
     alias rd: std_logic_vector(4 downto 0) is instruction_1(15 downto 11);
-    
+
+    -- ALU zero flag
     signal zero : std_logic; 
 
-    -- Testes
-    alias rs_0: std_logic_vector(4 downto 0) is instruction(25 downto 21);
-    alias rt_0: std_logic_vector(4 downto 0) is instruction(20 downto 16);
-    alias rd_0: std_logic_vector(4 downto 0) is instruction(15 downto 11);
-    signal bypass: std_logic_vector(1 downto 0);
-    signal readData1_1_bypass, readData2_1_bypass: std_logic_vector(31 downto 0);
+    -- Register write data bypass
+    signal readData2_1_bypass: std_logic_vector(31 downto 0);
     
 begin
 
@@ -152,10 +152,6 @@ begin
                     jumpTarget when uins_3.Jump = '1' and not(uins_4.Jump = '1') and not((uins_4.Branch and zero_4) = '1') else
                     incrementedPC;
 
-    -- Flush the pipeline when a branch is taken
-    MUX_RESET_STAGES: reset_taken_stages <= "01" when (((uins_3.Branch and zero_3) = '1') or uins_3.Jump = '1') and not(uins_4.Jump = '1') and not((uins_4.Branch and zero_4) = '1') else
-                                             "00";
-
     -- Selects the ALU operands
     -- MUXes at the ALU input
     MUX_ALU_1: ALUoperand1 <=  readData1_2 when (forward_a = "00") else
@@ -175,19 +171,22 @@ begin
     -- Write data comes from stage 4 of the pipeline
     MUX_DATA_MEM: writeData <= data_i_4 when uins_4.memToReg = '1' else result_4;
 
+    -- Flush the pipeline when a branch is taken
+    MUX_RESET_STAGES: reset_taken_stages <= "01" when (((uins_3.Branch and zero_3) = '1') or uins_3.Jump = '1') and not(uins_4.Jump = '1') and not((uins_4.Branch and zero_4) = '1') else
+        "00";
+
     -- Bypass register write if data dependency is detected
     readData2_1_bypass <= writeData when (writeRegister_4 = rt) and uins_4.RegWrite = '1' else readData2;
-        
-    bypass <= "10" when (writeRegister_4 = rt) and uins_4.RegWrite = '1' else
-            "00";
-    
+
     -- Data to data memory comes from the second read register at register file
     data_o <= readData2_3;
     
     -- ALU output address the data memory
     dataAddress <= result_3;
-
+    
+    -- Data path microinstruction output for the data memory
     uins_out <= uins_3;
+
     -- Synchronizes the reset signal
     process(clock, reset)
     begin
@@ -205,7 +204,7 @@ begin
             instruction_1 <= (others => '0');
             incrementedPC_1 <= (others => '0');
 
-        -- If detected a data hazard, creates a bubble in the pipeline
+        -- If detected a data hazard or branch or jump, creates a bubble in the pipeline
         elsif (rising_edge(clock) and data_dependency = '1' and reset_taken_stages = "00") then
             instruction_1 <= instruction;
             incrementedPC_1 <= incrementedPC;
